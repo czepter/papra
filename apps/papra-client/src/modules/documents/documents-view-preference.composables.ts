@@ -1,12 +1,14 @@
 import type { Accessor } from 'solid-js';
 import type { DocumentsView, DocumentsViewPreferences } from './documents-view-preference.models';
-import { createMemo, createSignal } from 'solid-js';
+import { createMemo } from 'solid-js';
 import { useI18n } from '../i18n/i18n.provider';
 import { buildLocalStorageKey } from '../shared/signals/persistence/persistence.models';
+import { createPersistedSignal } from '../shared/signals/persistence/persistence.signals';
 import { createToast } from '../ui/components/sonner';
 import { useCurrentUser } from '../users/composables/useCurrentUser';
 import {
   applyViewEverywhere,
+  defaultDocumentsViewPreferences,
   hasTagViewOverride,
   parseStoredDocumentsViewPreferences,
   removeTagViewOverride,
@@ -23,26 +25,6 @@ export function buildDocumentsViewPreferencesStorageKey({
   organizationId: string;
 }) {
   return buildLocalStorageKey('documents-view', userId, organizationId);
-}
-
-function readPreferences({ key }: { key: string }) {
-  try {
-    return parseStoredDocumentsViewPreferences({ raw: window.localStorage.getItem(key) });
-  } catch {
-    return parseStoredDocumentsViewPreferences({ raw: undefined });
-  }
-}
-
-function writePreferences({
-  key,
-  preferences,
-}: {
-  key: string;
-  preferences: DocumentsViewPreferences;
-}) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(preferences));
-  } catch {}
 }
 
 // `getTagName` is the tag the documents are currently filtered by (only when it is the single filter)
@@ -63,22 +45,18 @@ export function createDocumentsViewPreference({
     }),
   );
 
-  // Cached in memory, the key changing (organization switch) reloads from the storage
-  const [getState, setState] = createSignal<{
-    key: string;
-    preferences: DocumentsViewPreferences;
-  }>();
+  // The key changing (organization switch) creates a new persisted signal that loads the preferences of the new key
+  const getPersistedSignal = createMemo(() =>
+    createPersistedSignal<DocumentsViewPreferences>(defaultDocumentsViewPreferences, {
+      key: getKey(),
+      deserialize: (raw) => parseStoredDocumentsViewPreferences({ raw }),
+    }),
+  );
 
-  const getPreferences = () => {
-    const state = getState();
-
-    return state?.key === getKey() ? state.preferences : readPreferences({ key: getKey() });
-  };
+  const getPreferences = () => getPersistedSignal()[0]();
 
   const savePreferences = (preferences: DocumentsViewPreferences) => {
-    const key = getKey();
-    setState({ key, preferences });
-    writePreferences({ key, preferences });
+    getPersistedSignal()[1](preferences);
   };
 
   const getViewLabel = (view: DocumentsView) => t(`documents.view.${view}`);

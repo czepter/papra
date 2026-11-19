@@ -1,7 +1,7 @@
 import type { DocumentPreviewVariant } from './document-previews.models';
 import { buildTimeConfig } from '../config/config';
+import { createConcurrencyLimiter } from '../shared/utils/concurrency';
 import {
-  createConcurrencyLimiter,
   getDocumentPreviewUrl as buildDocumentPreviewUrl,
   getPreviewRetryDelayMs,
   PREVIEW_MAX_ATTEMPTS,
@@ -49,7 +49,7 @@ async function probeDocumentPreview({
       return { status: 'ready' };
     }
 
-    if (response.status === 503 || response.status >= 500) {
+    if (response.status >= 500) {
       const retryAfter = Number.parseInt(response.headers.get('Retry-After') ?? '', 10);
 
       return {
