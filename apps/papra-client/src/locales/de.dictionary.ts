@@ -456,6 +456,23 @@ export const translations: Partial<TranslationsDictionary> = {
   'documents.list.select.all': 'Alle Zeilen auf dieser Seite auswählen',
   'documents.list.select.row': 'Zeile auswählen',
 
+  'documents.preview.alt': 'Vorschau von {{ name }}',
+  'documents.preview.no-preview': 'Keine Vorschau für diesen Dateityp',
+
+  'documents.grid.quick-look': 'Schnellansicht',
+  'documents.grid.sort.label': 'Sortieren nach',
+  'documents.grid.sort.direction': 'Sortierrichtung umkehren',
+
+  'documents.view.toggle-label': 'Dokumentenansicht',
+  'documents.view.list': 'Liste',
+  'documents.view.grid': 'Raster',
+  'documents.view.saved-for-tag': 'Für diesen Tag gespeichert',
+  'documents.view.toast.title': 'Ansicht „{{ view }}“ für „{{ tag }}“ gespeichert',
+  'documents.view.toast.description':
+    'Andere Ansichten verwenden weiterhin {{ defaultView }}. Nur du siehst diese Einstellung.',
+  'documents.view.toast.undo': 'Rückgängig',
+  'documents.view.toast.everywhere': '{{ view }} überall verwenden',
+
   'custom-properties.types.text': 'Text',
   'custom-properties.types.number': 'Zahl',
   'custom-properties.types.date': 'Datum',
