@@ -17,6 +17,7 @@ import { useDebounce } from '@/modules/shared/utils/timing';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { DocumentsViewToggle } from '../components/documents-view-toggle.component';
 import { DocumentUploadArea } from '../components/document-upload-area.component';
 import { DocumentsBatchTagDialog } from '../components/documents-batch-tag-dialog.component';
 import {
@@ -33,6 +34,8 @@ import {
   DOCUMENT_SEARCH_SORT_FIELDS,
   DOCUMENT_SEARCH_SORT_ORDERS,
 } from '../documents.constants';
+import { createDocumentsViewPreference } from '../documents-view-preference.composables';
+import { getSingleTagFromSearchQuery } from '../documents-view-preference.models';
 import { fetchOrganizationDocuments } from '../documents.services';
 
 export const DocumentsPage: Component = () => {
@@ -45,6 +48,11 @@ export const DocumentsPage: Component = () => {
   });
   const debouncedSearchQuery = useDebounce(getSearchQuery, 300);
   const [getPagination, setPagination] = createParamSynchronizedPagination();
+  // The view choice follows the tag when the documents are filtered by exactly one tag, else the default one
+  const viewPreference = createDocumentsViewPreference({
+    getOrganizationId: () => params.organizationId,
+    getTagName: () => getSingleTagFromSearchQuery({ query: debouncedSearchQuery() }),
+  });
   const [getRowSelection, setInternalRowSelection] = createSignal<RowSelectionState>({});
   const [getSelectAllMatchingQuery, setSelectAllMatchingQuery] = createSignal(false);
   const [getTagDialogOpen, setTagDialogOpen] = createSignal(false);
@@ -327,6 +335,14 @@ export const DocumentsPage: Component = () => {
                   )}
                 </CreateDocumentViewModal>
               </Show>
+
+              <div class="ml-auto">
+                <DocumentsViewToggle
+                  view={viewPreference.getView()}
+                  onViewChange={viewPreference.setView}
+                  isSavedForTag={viewPreference.hasTagOverride()}
+                />
+              </div>
             </div>
 
             <div class="mb-4 mt-2 ml-2 min-h-8 flex items-center">
@@ -444,6 +460,7 @@ export const DocumentsPage: Component = () => {
               setRowSelection={setRowSelection}
               getSorting={getSorting}
               setSorting={setSorting}
+              view={viewPreference.getView()}
               extraColumns={[
                 tagsColumn,
                 documentDateColumn,
