@@ -4,6 +4,8 @@
 
 - Draft plan. Not implemented. No code, dependency, migration or config entry is added by this document.
 - Date: 2026-11-19. Base: `feat/document-previews` at `648c223b`.
+- Follows the maintainer's suggestion on the upstream issue [papra-hq/papra#400](https://github.com/papra-hq/papra/issues/400) ("MCP Server"): build the server on `@hono/mcp`, which runs the MCP streamable HTTP transport on a Hono app.
+- `@hono/mcp` facts below come from the published package `@hono/mcp@0.3.5` (npm `time.modified` 2026-10-28), unpacked and read on 2026-11-19: its `README.md`, `package.json` and compiled `dist/` files. It is not installed in this repository.
 - Assumed MCP specification revision: 2025-06-18 or later. This is assumed from memory, not checked against the published text. No `@modelcontextprotocol/*` package is installed, so nothing here could be verified against a local copy. Every protocol-level statement below follows that assumed revision, and the ones most likely to be wrong are collected in [Verify before slice 1](#verify-before-slice-1).
 - Reading of the request ("plan the integration of a real mcp server with oauth and custom fields etc."): a remote MCP server hosted inside `apps/papra-server` and reached by URL, authorized through OAuth, exposing documents, tags, custom properties ("custom fields") and document enrichment. A local stdio wrapper built on `packages/api-sdk` or `packages/cli` is the deferred alternative: it needs the user to install and configure a process and paste an API key, and it cannot offer a browser authorization flow.
 
@@ -37,22 +39,31 @@ When the flag is off the endpoint and the metadata routes are not registered, so
 - Registration: a `registerMcpRoutes(context)` function added to `registerRoutes` in `apps/papra-server/src/modules/app/server.routes.ts`, called only when `config.mcp.enabled` is true.
 - Metadata endpoints (see section 2) are served at their well-known paths from the same registration function. The server also serves client assets (`apps/papra-server/src/modules/app/static-assets/`), so the plan must make sure the SPA fallback does not answer `/.well-known/*` or `/mcp`. Slice 1 adds a test for that.
 
-### Transport
+### What `@hono/mcp` provides
 
-Following the assumed revision, the transport is "streamable HTTP": a single endpoint that accepts `POST` with a JSON-RPC message and may answer with a JSON body or an event stream, plus an optional `GET` that opens a server-to-client stream.
+Read from `@hono/mcp@0.3.5` (see Status). It is a small package for exactly this setup, a Hono app serving MCP:
 
-- Stateless is recommended. Every tool in the catalogue is a request/response call, there is no server-initiated message, and the server may run as several instances behind a load balancer. Each `POST` is handled on its own, with no session id. `GET` returns `405`.
-- Stateful sessions (an `Mcp-Session-Id` header, per the assumed revision) are only needed for server-initiated messages, which this plan does not use. If a later tool needs progress notifications, revisit.
-- Session-less operation still requires an authenticated request every time; there is no state to attach a login to.
+- `StreamableHTTPTransport` (import from `@hono/mcp`): a transport for the MCP SDK's `McpServer` that works on Hono's `Context` and web-standard `Request`/`Response`, so no Node request/response adapter is needed. Usage in its README: `app.all('/mcp', ...)`, connect the server to the transport once, then `return transport.handleRequest(c)`. It handles `GET` (event stream), `POST` (JSON-RPC messages), `DELETE` (end a session) and answers other methods with `405`. Its constructor accepts the SDK's `StreamableHTTPServerTransportOptions` plus `strictAcceptHeader` (default `false`, tolerant `Accept` handling) and `onsessiondisconnected`.
+- `MemoryEventStore`: an in-memory event store for resumable streams. Not needed for a stateless server.
+- `@hono/mcp/auth` (also re-exported from the root): `bearerAuth`, `wellKnownRouter`, `simpleMcpAuthRouter`, `mcpAuthRouter`, `ProxyOAuthServerProvider` and the lower-level `authorizeHandler`, `tokenHandler`, `clientRegistrationHandler`, `revokeHandler`. Details in section 2.
+- Peer dependencies (all required, none marked optional in its `package.json`): `@modelcontextprotocol/sdk@^1.29.0`, `hono`, `hono-rate-limiter@^0.5.4` and `zod@^3.25.0 || ^4.0.0`. Its only direct dependency is `pkce-challenge`. `hono` is already a server dependency (`apps/papra-server/package.json`). The other three are not, so slice 1 adds `@hono/mcp`, `@modelcontextprotocol/sdk`, `hono-rate-limiter` and `zod` together. `zod` is needed only because the SDK and package declare it; Papra's own schemas stay valibot (section 4).
+
+### Mounting with `@hono/mcp`
+
+The transport is registered on the existing app through the module's `registerMcpRoutes` (above), at `/mcp`, with the SDK's `McpServer` holding the tool catalogue from `mcp.tools.ts`. The SDK supplies protocol framing and tool registration, `@hono/mcp` supplies the Hono transport.
+
+### Transport and sessions
+
+Per the assumed spec revision, streamable HTTP is a single endpoint taking `POST` with JSON-RPC messages, answering with a JSON body or an event stream, plus an optional `GET` stream.
+
+- Stateless is recommended: every tool is request/response, the server sends nothing on its own, and Papra may run as several instances. In `StreamableHTTPTransport`, leaving `sessionIdGenerator` unset skips session-id validation (read in `dist/index.mjs`: the session check returns early when no generator is set). The README example connects one `McpServer` to one transport and reuses it for every request. Whether a single stateless transport instance can serve concurrent requests from different users, or a transport and `McpServer` pair must be created per request, is a slice-1 check (see Verify), because per-request identity must never leak between callers.
+- The transport reads `ctx.get('auth')` (the SDK's `AuthInfo`) and passes it to tool handlers as request info (`dist/index.mjs`). The authentication middleware sets it; tool handlers read the user id from it, so tools never trust arguments for identity.
+- Stateful sessions (`Mcp-Session-Id` header) are only needed for server-initiated messages, which this plan does not use.
+- When the flag is off, nothing is registered and `/mcp` returns the normal 404.
 
 ### Dependency decision
 
-Not installed today (no `@modelcontextprotocol/*` in any `package.json`). Slice 1 decides between:
-
-1. `@modelcontextprotocol/sdk`: handles JSON-RPC framing, tool registration and capability negotiation. Cost: a new dependency, and its HTTP transport targets Node request/response objects, so it needs an adapter on Hono's `Request`/`Response`.
-2. A hand-rolled JSON-RPC handler for the small subset used (`initialize`, `tools/list`, `tools/call`, `ping`). Cost: protocol drift is Papra's problem.
-
-Recommendation: start with the SDK if its transport can run on web-standard `Request`/`Response`; otherwise hand-roll the subset. A maintainer approves the dependency before slice 1 merges.
+`@hono/mcp` is the chosen route, following the maintainer's comment on #400. Not installed today (no `@hono/mcp` or `@modelcontextprotocol/*` in any `package.json`); a maintainer approves the four new dependencies listed above before slice 1 merges. The hand-rolled JSON-RPC alternative is dropped: `@hono/mcp` is small, maintained in the Hono middleware repository, and declares the SDK as a peer dependency, so protocol framing stays in the SDK and not in Papra code. Residual risk: its version is `0.x`, so minor releases may break the API; pin the exact version.
 
 ## 2. Authentication and authorization
 
@@ -80,7 +91,7 @@ The MCP endpoint accepts `Authorization: Bearer ppapi_...` and reuses `buildGetA
 
 ### Option B: OAuth 2.1 authorization server
 
-Papra becomes an authorization server for the MCP resource. Per the assumed revision this means: authorization-server metadata (RFC 8414), protected-resource metadata (RFC 9728), dynamic client registration (RFC 7591), authorization code with PKCE (RFC 7636), resource indicators (RFC 8707) so tokens are bound to the MCP URL, a consent screen, token and refresh endpoints, and revocation.
+Papra becomes an authorization server for the MCP resource. `@hono/mcp/auth` can serve the Hono side of this (see below), but it does not store clients or tokens; those need Papra tables either way. Per the assumed revision this means: authorization-server metadata (RFC 8414), protected-resource metadata (RFC 9728), dynamic client registration (RFC 7591), authorization code with PKCE (RFC 7636), resource indicators (RFC 8707) so tokens are bound to the MCP URL, a consent screen, token and refresh endpoints, and revocation.
 
 | Aspect               | Assessment                                                                                |
 | -------------------- | ----------------------------------------------------------------------------------------- |
@@ -103,17 +114,40 @@ Version pinned in the catalog of `pnpm-workspace.yaml` and consumed by `apps/pap
 
 Tables: Papra writes its auth tables by hand in `apps/papra-server/src/modules/app/auth/auth.tables.ts` (`auth_sessions`, `auth_accounts`, `auth_verifications`, `auth_two_factor`) and applies schema changes with hand-written migrations in `apps/papra-server/src/migrations/list/`, registered in `apps/papra-server/src/migrations/migrations.registry.ts`. The new tables follow the same pattern: drizzle tables with `auth_`-prefixed names (for example `auth_oauth_clients`, `auth_oauth_tokens`, `auth_oauth_consents`), mapped to better-auth's model names through its `modelName`/schema options, and a hand-written migration. better-auth's own migration CLI is not used.
 
+### What `@hono/mcp/auth` provides
+
+All from `@hono/mcp@0.3.5` (`dist/auth.mjs`, `dist/auth.d.mts`):
+
+- `bearerAuth(options)`: a wrapper around Hono's `bearer-auth` middleware (options are the same, including `verifyToken`). On a missing or invalid token it answers `401` with a `WWW-Authenticate` header carrying `resource_metadata="<request origin>/.well-known/oauth-protected-resource"`. The origin comes from the request URL. Papra's rule (section 2, URLs) is to derive URLs from configuration, so the header must be overridden through the options (they are spread after the defaults), with the path matching the metadata route actually served.
+- `wellKnownRouter({ oauthMetadata, resourceServerUrl, scopesSupported, ... })`: serves protected-resource metadata at `/.well-known/oauth-protected-resource<path of resourceServerUrl>` (so `/.well-known/oauth-protected-resource/mcp` for `/mcp`, with `authorization_servers` set to the issuer) and the given metadata at `/.well-known/oauth-authorization-server`. Note the path suffix differs from the unsuffixed path that `bearerAuth` advertises by default; slice 1 must make them agree.
+- `simpleMcpAuthRouter({ issuer, resourceServerUrl, ... })`: the same router for the case where an external provider owns OAuth. It builds authorization-server metadata with hard-coded endpoint paths `/authorize`, `/token` (and `/register`, `/revoke` when the provider supports them) resolved against the issuer, and advertises `S256` and `client_secret_post` only. It serves metadata, not the endpoints themselves.
+- `mcpAuthRouter({ provider, issuerUrl, ... })`: a full authorization-server router (authorization, token, registration, revocation endpoints plus metadata, rate-limited through `hono-rate-limiter`) driven by an implementation of the SDK's `OAuthServerProvider` interface. Papra would implement that interface: client store, authorization-code issue and PKCE challenge storage, token exchange, token verification.
+- `ProxyOAuthServerProvider`: an `OAuthServerProvider` that forwards to another authorization server's authorization, token, registration and revocation URLs, with caller-supplied `verifyAccessToken` and `getClient`.
+
+### Who owns OAuth: better-auth or `@hono/mcp`
+
+Two ways to build option B, and this is genuinely open (question 4 in section 7):
+
+1. better-auth owns the authorization server. Use `@better-auth/oauth-provider` for endpoints, client registration, consent storage and tokens, behind Papra's existing sign-in (`apps/papra-server/src/modules/app/auth/auth.services.ts`). `@hono/mcp` supplies only the transport, `bearerAuth` (with `verifyToken` calling better-auth's token verification) and the metadata router. `mcpAuthRouter` is not used, or `ProxyOAuthServerProvider` is used to front better-auth's endpoints if the paths or metadata need adapting.
+2. `@hono/mcp` owns it. Use `mcpAuthRouter` with a Papra `OAuthServerProvider` and Papra's own tables. The consent step still needs the signed-in user, which better-auth's session provides, so Papra would write the authorization-code, consent and token logic by hand and keep it correct as the SDK interface changes.
+
+Recommendation: option 1. The authorization server is security-sensitive code, better-auth already holds the user's session and the consent decision, and a maintained plugin should do the token handling instead of a hand-written provider. `@hono/mcp` is used for what it does well: the transport and the resource-server side. Check in slice 4 that `@better-auth/oauth-provider`'s metadata and endpoint paths match what MCP clients discover; if they differ, `ProxyOAuthServerProvider` or a custom metadata route bridges them.
+
+### Where API keys fit
+
+Option A is a `verifyToken` callback for `bearerAuth`: it looks up the `ppapi_` token with `buildGetApiKey` (`apps/papra-server/src/modules/api/api.authentication.ts`), then sets `auth` on the Hono context with the user id and the key's permissions as scopes, so tool handlers see one shape for both token kinds. When OAuth arrives, `verifyToken` tries the OAuth verifier for tokens that do not match `API_KEY_TOKEN_REGEX` (`apps/papra-server/src/modules/api-keys/api-keys.constants.ts`) and the API-key lookup for those that do.
+
 ### Recommendation
 
-Build option B on `@better-auth/oauth-provider`, and ship option A first as the interim.
+Build option B with better-auth owning the authorization server (previous section), using `@better-auth/oauth-provider`, and ship option A first as the interim.
 
 Reasons:
 
 1. The deprecated `oidcProvider`/`mcp` pair will be removed in the next better-auth major version. Building new tables and endpoints on it would mean a forced migration shortly after.
-2. Option A is a few dozen lines and lets the tool catalogue be built and tested before the authorization server exists. Whether it is useful to real users depends on the target clients (open question 1).
+2. Option A is a `verifyToken` callback on `@hono/mcp`'s `bearerAuth` and lets the tool catalogue be built and tested before the authorization server exists. Whether it is useful to real users depends on the target clients (open question 1).
 3. OAuth tokens give audience binding and per-client revocation, which API keys cannot.
 
-Fallback if the maintainer rejects the new dependency: keep option A only and document it as the supported way to connect (static bearer header). A second fallback is to build the authorization endpoints on the deprecated plugin that is already installed, accepting the migration cost at the next better-auth major. This plan does not recommend that.
+Fallback if the maintainer rejects `@better-auth/oauth-provider`: keep option A only and document it as the supported way to connect (static bearer header). A second fallback is to build the authorization endpoints on the deprecated plugin that is already installed, accepting the migration cost at the next better-auth major. This plan does not recommend that. A third, if the maintainer prefers fewer better-auth moving parts: `mcpAuthRouter` from `@hono/mcp` with a Papra-written provider and tables (option 2 above).
 
 ### Scope mapping
 
@@ -139,7 +173,7 @@ The consent screen groups them in plain language (for example "Read your documen
 
 ### URLs
 
-Issuer, resource URL and metadata URLs are derived from configured base URLs, never from request `Host` headers, so instances behind a reverse proxy work. The server base URL comes from `server.baseUrl` and `appBaseUrl` in `apps/papra-server/src/modules/config/config.ts`; `getClientBaseUrl` in `apps/papra-server/src/modules/config/config.models.ts` is the existing helper for the client side and a sibling helper for the server side is added in slice 1. Metadata paths (per the assumed revision): `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`, with `401` responses from `/mcp` carrying a `WWW-Authenticate` header that points at the former.
+Issuer, resource URL and metadata URLs are derived from configured base URLs, never from request `Host` headers, so instances behind a reverse proxy work. The server base URL comes from `server.baseUrl` and `appBaseUrl` in `apps/papra-server/src/modules/config/config.ts`; `getClientBaseUrl` in `apps/papra-server/src/modules/config/config.models.ts` is the existing helper for the client side and a sibling helper for the server side is added in slice 1. Metadata paths (per the assumed revision): `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`, with `401` responses from `/mcp` carrying a `WWW-Authenticate` header that points at the former. With `@hono/mcp`, the protected-resource path is suffixed with the resource path (`/.well-known/oauth-protected-resource/mcp`) and its `bearerAuth` builds the header from the request origin; both are adjusted to match, see "What `@hono/mcp/auth` provides".
 
 ## 3. Tool catalogue
 
@@ -212,7 +246,7 @@ Discovery: a model cannot guess option ids, user ids or document ids. `list_cust
 
 ## 4. Input schema derivation
 
-Tool `inputSchema` is generated from valibot, not written by hand, with `@valibot/to-json-schema`. It is already a server dependency (`apps/papra-server/package.json`) and `toStandardJsonSchema` is already used in `apps/papra-server/src/modules/ai/ai.services.ts`.
+Tool `inputSchema` is generated from valibot, not written by hand, with `@valibot/to-json-schema`. The MCP SDK's high-level `McpServer` helpers are documented around zod schemas, so slice 2 checks how to register a tool with a ready-made JSON Schema plus a separate validator (the valibot parse) instead of converting schemas to zod; if the SDK only accepts zod, the lower-level request handlers for `tools/list` and `tools/call` are used, which take JSON Schema directly. It is already a server dependency (`apps/papra-server/package.json`) and `toStandardJsonSchema` is already used in `apps/papra-server/src/modules/ai/ai.services.ts`.
 
 ### Where the schemas live
 
@@ -260,16 +294,16 @@ None of these are part of this PR.
 
 Each entry is one PR. Branch names follow `<type>/<kebab-topic>`. Dependencies are listed after the risk.
 
-| #   | Branch                                     | Scope                                                                                                                             | Risk   | Surfaces     | Depends on           |
-| --- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------ | -------------------- |
-| 0a  | `refactor/documents-api-contracts`         | Move documents routes to contracts, as-is, per the README rule. May split by route.                                               | medium | none         | none                 |
-| 0b  | `refactor/custom-properties-api-contracts` | Move custom-properties routes to contracts, as-is.                                                                                | medium | none         | none                 |
-| 1   | `feat/mcp-server-skeleton`                 | `mcp` module, config flag, `/mcp` route, stateless transport, API-key auth, `ping` and `list_organizations`, SPA-fallback test.   | medium | security     | dependency approval  |
-| 2   | `feat/mcp-read-tools`                      | Read tools: documents, tags, custom properties, document values. Schema derivation helper.                                        | low    | none         | 1 (0a, 0b preferred) |
-| 3   | `feat/mcp-write-tools`                     | Write tools: update, upload, tags, custom property definitions and values, enrichment. Size limits and `isError` mapping.         | medium | security     | 2                    |
-| 4   | `feat/mcp-oauth-server`                    | OAuth tables, migration, authorization-server and protected-resource metadata, registration, token endpoints, third auth context. | high   | security, db | 1                    |
-| 5   | `feat/mcp-consent-ui`                      | Consent page, connected-apps list with revoke, i18n.                                                                              | medium | ui           | 4                    |
-| 6   | `docs/mcp-server-guide`                    | Guide, config reference, changeset.                                                                                               | low    | none         | 3, 5                 |
+| #   | Branch                                     | Scope                                                                                                                                                                                                                                                                            | Risk   | Surfaces     | Depends on                        |
+| --- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------ | --------------------------------- |
+| 0a  | `refactor/documents-api-contracts`         | Move documents routes to contracts, as-is, per the README rule. May split by route.                                                                                                                                                                                              | medium | none         | none                              |
+| 0b  | `refactor/custom-properties-api-contracts` | Move custom-properties routes to contracts, as-is.                                                                                                                                                                                                                               | medium | none         | none                              |
+| 1   | `feat/mcp-server-skeleton`                 | `mcp` module, config flag, `/mcp` route on `@hono/mcp`'s `StreamableHTTPTransport` (stateless), `bearerAuth` with API-key `verifyToken`, `ping` and `list_organizations`, SPA-fallback test. Adds `@hono/mcp` (pinned), `@modelcontextprotocol/sdk`, `hono-rate-limiter`, `zod`. | medium | security     | approval of the four dependencies |
+| 2   | `feat/mcp-read-tools`                      | Read tools: documents, tags, custom properties, document values. Schema derivation helper.                                                                                                                                                                                       | low    | none         | 1 (0a, 0b preferred)              |
+| 3   | `feat/mcp-write-tools`                     | Write tools: update, upload, tags, custom property definitions and values, enrichment. Size limits and `isError` mapping.                                                                                                                                                        | medium | security     | 2                                 |
+| 4   | `feat/mcp-oauth-server`                    | OAuth tables, migration, `@better-auth/oauth-provider`, protected-resource metadata through `@hono/mcp`'s `wellKnownRouter`, bridge of endpoint paths if needed, `verifyToken` for OAuth tokens, third auth context.                                                             | high   | security, db | 1                                 |
+| 5   | `feat/mcp-consent-ui`                      | Consent page, connected-apps list with revoke, i18n.                                                                                                                                                                                                                             | medium | ui           | 4                                 |
+| 6   | `docs/mcp-server-guide`                    | Guide, config reference, changeset.                                                                                                                                                                                                                                              | low    | none         | 3, 5                              |
 
 This keeps the intake's six slices (skeleton with API keys, read tools, write tools, OAuth server, consent UI, docs guide) and adds the contract migrations from section 4 as preferred, non-blocking predecessors of the read and write tools (slices 2 and 3 can derive from the existing `*.schemas.ts` files if 0a and 0b are not done yet).
 
@@ -282,8 +316,8 @@ Migrations: the base branch has migrations up to `apps/papra-server/src/migratio
 1. Which clients must work on day one? This decides whether slices 1 to 3 are useful before OAuth (static bearer header) or whether OAuth must come first.
 2. Organization-bound tokens or organization as a tool argument? The plan assumes the argument. Binding a token to one organization is safer for delegated access but needs an organization choice on the consent page and complicates users with several organizations.
 3. Plan gating: should the MCP server be tied to a plan entitlement (`apps/papra-server/src/modules/plan-entitlements/`) or be available on every plan?
-4. Dependencies: add `@better-auth/oauth-provider`, `@modelcontextprotocol/sdk`, both, or neither (hand-rolled)?
-5. Does the maintainer want this in core? `CONTRIBUTING.md` asks for an issue before feature PRs, so an issue should exist and be agreed before slice 1.
+4. Dependencies: slice 1 adds `@hono/mcp`, `@modelcontextprotocol/sdk`, `hono-rate-limiter` and `zod` (the last two are its required peers). Is that acceptable for a `0.x` package? And who owns OAuth: `@better-auth/oauth-provider` (recommended, adds one more dependency) or `@hono/mcp`'s `mcpAuthRouter` with a Papra-written provider and tables?
+5. Does the maintainer want this in core? `CONTRIBUTING.md` asks for an issue before feature PRs. The issue exists ([papra-hq/papra#400](https://github.com/papra-hq/papra/issues/400)) and the maintainer has suggested `@hono/mcp`; confirm scope, defaults and the dependency list there before slice 1.
 6. Rate limiting: should `/mcp` use the existing limiter in `apps/papra-server/src/modules/app/rate-limit/`, with its own limits per user or per client?
 7. Audit or activity logging of tool calls: record them in document activity (`apps/papra-server/src/modules/documents/document-activity/`), in the logs only, or not at all? Should changes made through MCP be marked with the client name?
 8. File size over MCP: the encoded-payload cap for `upload_document`, and whether file download is ever offered.
@@ -303,3 +337,7 @@ These are protocol details taken from the assumed revision (2025-06-18 or later)
 - Tool annotations: field names and defaults for `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`.
 - Structured tool output: whether to return `structuredContent` next to text content, and how `outputSchema` is declared.
 - Error shape for tool failures (`isError` result) against protocol errors.
+- `@hono/mcp` (read at 0.3.5, newest at the time of writing; re-check the version): stateless use with one shared transport versus one transport and `McpServer` per request, concurrent requests from different users, and how `ctx.get('auth')` reaches tool handlers.
+- `@hono/mcp`: whether `bearerAuth` options can fully replace its `WWW-Authenticate` header, and that the advertised metadata path equals the path `wellKnownRouter` serves.
+- `@hono/mcp` against `@modelcontextprotocol/sdk`: the supported SDK range (`^1.29.0` declared) and whether `McpServer` accepts JSON Schema input or only zod.
+- `@better-auth/oauth-provider`: endpoint paths, metadata and registration behaviour compared with what MCP clients discover, and with the paths `simpleMcpAuthRouter` hard-codes.
