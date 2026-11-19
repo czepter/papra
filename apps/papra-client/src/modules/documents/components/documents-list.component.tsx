@@ -1,6 +1,12 @@
-import type { ColumnDef, RowSelectionState, SortingState } from '@tanstack/solid-table';
+import type {
+  ColumnDef,
+  RowSelectionState,
+  SortingState,
+  Table as TanstackTable,
+} from '@tanstack/solid-table';
 import type { Accessor, Component, Setter } from 'solid-js';
 import type { Document } from '../documents.types';
+import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import type { Pagination } from '@/modules/shared/pagination/pagination.types';
 import type { Tag } from '@/modules/tags/tags.types';
 import { formatBytes } from '@corentinth/chisels';
@@ -14,10 +20,9 @@ import {
 import { For, Match, Show, Switch } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { cn } from '@/modules/shared/style/cn';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
 import { Button } from '@/modules/ui/components/button';
-import { Checkbox, CheckboxControl } from '@/modules/ui/components/checkbox';
+import { Checkbox, CheckboxControl, CheckboxLabel } from '@/modules/ui/components/checkbox';
 import {
   Select,
   SelectContent,
@@ -33,12 +38,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/modules/ui/components/table';
-import {
-  getDocumentIcon,
-  getDocumentNameExtension,
-  getDocumentNameWithoutExtension,
-} from '../document.models';
+import { getDocumentNameExtension, getDocumentNameWithoutExtension } from '../document.models';
+import type { DocumentsView } from '../documents-view-preference.models';
 import { DocumentManagementDropdown } from './document-management-dropdown.component';
+import { DocumentThumbnail } from './document-thumbnail.component';
+import { DocumentsGrid } from './documents-grid.component';
 
 const selectionColumn: ColumnDef<Document> = {
   id: 'select',
@@ -154,6 +158,98 @@ export const tagsColumn: ColumnDef<Document> = {
   ),
 };
 
+const sortableColumnLabelKeys: Record<string, TranslationKeys> = {
+  name: 'documents.list.table.headers.file-name',
+  documentDate: 'documents.list.table.headers.document-date',
+  createdAt: 'documents.list.table.headers.created',
+};
+
+// The grid has no column headers, so sorting and selecting the whole page live in a small toolbar
+const DocumentsGridToolbar: Component<{
+  table: TanstackTable<Document>;
+  enableBatchSelection?: boolean;
+}> = (props) => {
+  const { t } = useI18n();
+
+  const getSortableColumns = () =>
+    props.table
+      .getAllLeafColumns()
+      .filter((column) => column.getCanSort() && column.id in sortableColumnLabelKeys);
+  const getSortedColumn = () => getSortableColumns().find((column) => column.getIsSorted());
+
+  return (
+    <div class="mb-3 flex min-h-8 items-center justify-between gap-4">
+      <div>
+        <Show when={props.enableBatchSelection}>
+          <Checkbox
+            class="flex items-center gap-2 text-sm text-muted-foreground"
+            checked={props.table.getIsAllPageRowsSelected()}
+            indeterminate={
+              props.table.getIsSomePageRowsSelected() && !props.table.getIsAllPageRowsSelected()
+            }
+            onChange={(value) => props.table.toggleAllPageRowsSelected(value)}
+          >
+            <CheckboxControl />
+            <CheckboxLabel>{t('documents.list.select.all')}</CheckboxLabel>
+          </Checkbox>
+        </Show>
+      </div>
+
+      <Show when={getSortableColumns().length > 0}>
+        <div class="flex items-center gap-1">
+          <Select
+            value={getSortedColumn()?.id}
+            onChange={(value) => {
+              const column = getSortableColumns().find((c) => c.id === value);
+              column?.toggleSorting(getSortedColumn()?.getIsSorted() === 'desc');
+            }}
+            options={getSortableColumns().map((column) => column.id)}
+            disallowEmptySelection
+            itemComponent={(itemProps) => (
+              <SelectItem item={itemProps.item}>
+                {t(
+                  sortableColumnLabelKeys[itemProps.item.rawValue] ?? sortableColumnLabelKeys.name!,
+                )}
+              </SelectItem>
+            )}
+          >
+            <SelectTrigger class="h-8 w-auto gap-2" aria-label={t('documents.grid.sort.label')}>
+              <SelectValue<string>>
+                {(state) =>
+                  t(
+                    sortableColumnLabelKeys[state.selectedOption()] ??
+                      sortableColumnLabelKeys.name!,
+                  )
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent />
+          </Select>
+
+          <Button
+            variant="outline"
+            size="icon"
+            class="size-8"
+            aria-label={t('documents.grid.sort.direction')}
+            onClick={() => {
+              const column = getSortedColumn();
+              column?.toggleSorting(column.getIsSorted() === 'asc');
+            }}
+          >
+            <div
+              class={
+                getSortedColumn()?.getIsSorted() === 'asc'
+                  ? 'i-tabler-sort-ascending size-4'
+                  : 'i-tabler-sort-descending size-4'
+              }
+            />
+          </Button>
+        </div>
+      </Show>
+    </div>
+  );
+};
+
 export const DocumentsPaginatedList: Component<{
   documents: Document[];
   documentsCount: number;
@@ -166,6 +262,10 @@ export const DocumentsPaginatedList: Component<{
   setRowSelection?: Setter<RowSelectionState>;
   getSorting?: Accessor<SortingState>;
   setSorting?: Setter<SortingState>;
+  // Defaults to the table view
+  view?: DocumentsView;
+  // Hook for the quick look overlay, the grid cards show an eye button when provided
+  onQuickLook?: (document: Document) => void;
 }> = (props) => {
   const { t } = useI18n();
   const table = createSolidTable({
@@ -182,11 +282,7 @@ export const DocumentsPaginatedList: Component<{
         enableSorting: true,
         cell: (data) => (
           <div class="overflow-hidden flex gap-4 items-center max-w-500px">
-            <div class="bg-muted flex items-center justify-center p-2 rounded-lg">
-              <div
-                class={cn(getDocumentIcon({ document: data.row.original }), 'size-6 text-primary')}
-              />
-            </div>
+            <DocumentThumbnail document={data.row.original} hoverCard />
 
             <div class="flex-1 flex flex-col gap-1 truncate">
               <A
@@ -243,68 +339,84 @@ export const DocumentsPaginatedList: Component<{
     <div>
       <Switch>
         <Match when={props.documentsCount > 0}>
-          <Table>
-            <TableHeader>
-              <For each={table.getHeaderGroups()}>
-                {(headerGroup) => (
-                  <TableRow>
-                    <For each={headerGroup.headers}>
-                      {(header) => {
-                        return (
-                          <TableHead>
-                            <Show when={!header.isPlaceholder}>
-                              <Show
-                                when={header.column.getCanSort()}
-                                fallback={flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext(),
-                                )}
-                              >
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-1 cursor-pointer select-none"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  {flexRender(header.column.columnDef.header, header.getContext())}
-                                  <Show when={header.column.getIsSorted() === 'asc'}>
-                                    <div class="i-tabler-arrow-up size-3.5" />
+          <Show
+            when={props.view === 'grid'}
+            fallback={
+              <Table>
+                <TableHeader>
+                  <For each={table.getHeaderGroups()}>
+                    {(headerGroup) => (
+                      <TableRow>
+                        <For each={headerGroup.headers}>
+                          {(header) => {
+                            return (
+                              <TableHead>
+                                <Show when={!header.isPlaceholder}>
+                                  <Show
+                                    when={header.column.getCanSort()}
+                                    fallback={flexRender(
+                                      header.column.columnDef.header,
+                                      header.getContext(),
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      class="flex items-center gap-1 cursor-pointer select-none"
+                                      onClick={header.column.getToggleSortingHandler()}
+                                    >
+                                      {flexRender(
+                                        header.column.columnDef.header,
+                                        header.getContext(),
+                                      )}
+                                      <Show when={header.column.getIsSorted() === 'asc'}>
+                                        <div class="i-tabler-arrow-up size-3.5" />
+                                      </Show>
+                                      <Show when={header.column.getIsSorted() === 'desc'}>
+                                        <div class="i-tabler-arrow-down size-3.5" />
+                                      </Show>
+                                      <Show when={!header.column.getIsSorted()}>
+                                        <div class="i-tabler-arrows-sort size-3.5 opacity-40" />
+                                      </Show>
+                                    </button>
                                   </Show>
-                                  <Show when={header.column.getIsSorted() === 'desc'}>
-                                    <div class="i-tabler-arrow-down size-3.5" />
-                                  </Show>
-                                  <Show when={!header.column.getIsSorted()}>
-                                    <div class="i-tabler-arrows-sort size-3.5 opacity-40" />
-                                  </Show>
-                                </button>
-                              </Show>
-                            </Show>
-                          </TableHead>
-                        );
-                      }}
-                    </For>
-                  </TableRow>
-                )}
-              </For>
-            </TableHeader>
+                                </Show>
+                              </TableHead>
+                            );
+                          }}
+                        </For>
+                      </TableRow>
+                    )}
+                  </For>
+                </TableHeader>
 
-            <TableBody>
-              <Show when={table.getRowModel().rows?.length}>
-                <For each={table.getRowModel().rows}>
-                  {(row) => (
-                    <TableRow data-state={row.getIsSelected() && 'selected'}>
-                      <For each={row.getVisibleCells()}>
-                        {(cell) => (
-                          <TableCell>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        )}
-                      </For>
-                    </TableRow>
-                  )}
-                </For>
-              </Show>
-            </TableBody>
-          </Table>
+                <TableBody>
+                  <Show when={table.getRowModel().rows?.length}>
+                    <For each={table.getRowModel().rows}>
+                      {(row) => (
+                        <TableRow data-state={row.getIsSelected() && 'selected'}>
+                          <For each={row.getVisibleCells()}>
+                            {(cell) => (
+                              <TableCell>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TableCell>
+                            )}
+                          </For>
+                        </TableRow>
+                      )}
+                    </For>
+                  </Show>
+                </TableBody>
+              </Table>
+            }
+          >
+            <DocumentsGridToolbar table={table} enableBatchSelection={props.enableBatchSelection} />
+
+            <DocumentsGrid
+              rows={table.getRowModel().rows}
+              enableSelection={props.enableBatchSelection}
+              onQuickLook={props.onQuickLook}
+            />
+          </Show>
 
           <Show when={props.showPagination ?? true}>
             <div class="flex flex-col-reverse items-center gap-4 sm:flex-row sm:justify-end mt-4">
