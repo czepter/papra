@@ -1,4 +1,5 @@
 import type { Config } from '../config/config.types';
+import type { DocumentPreviewsRepository } from '../document-previews/document-previews.repository';
 import type { DocumentsRepository } from '../documents/documents.repository';
 import type { StorageService } from '../storage/storage.services';
 import type { EmailsServices } from '../emails/emails.services';
@@ -40,6 +41,7 @@ import {
   canUserRemoveMemberFromOrganization,
   getUserMaxOrganizationCount,
 } from './organizations.models';
+import { deleteDocumentPreviewFiles } from '../document-previews/document-previews.usecases';
 
 export async function createOrganization({
   name,
@@ -710,6 +712,7 @@ export async function restoreOrganization({
 export async function purgeExpiredSoftDeletedOrganization({
   organizationId,
   documentsRepository,
+  documentPreviewsRepository,
   organizationsRepository,
   documentsStorageService,
   logger = createLogger({ namespace: 'organizations.purge' }),
@@ -717,6 +720,7 @@ export async function purgeExpiredSoftDeletedOrganization({
 }: {
   organizationId: string;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   organizationsRepository: OrganizationsRepository;
   documentsStorageService: StorageService;
   logger?: Logger;
@@ -740,6 +744,12 @@ export async function purgeExpiredSoftDeletedOrganization({
         { organizationId, documentId: document.id, storageKey: document.originalStorageKey },
         'Deleted document file from storage',
       );
+      await deleteDocumentPreviewFiles({
+        documentId: document.id,
+        documentPreviewsRepository,
+        documentsStorageService,
+        logger,
+      });
       deletedCount++;
     } catch (error) {
       // Log but don't fail the entire purge if a single file deletion fails
@@ -765,12 +775,14 @@ export async function purgeExpiredSoftDeletedOrganization({
 export async function purgeExpiredSoftDeletedOrganizations({
   organizationsRepository,
   documentsRepository,
+  documentPreviewsRepository,
   documentsStorageService,
   logger = createLogger({ namespace: 'organizations.purge' }),
   now = new Date(),
 }: {
   organizationsRepository: OrganizationsRepository;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   documentsStorageService: StorageService;
   logger?: Logger;
   now?: Date;
@@ -791,6 +803,7 @@ export async function purgeExpiredSoftDeletedOrganizations({
       await purgeExpiredSoftDeletedOrganization({
         organizationId,
         documentsRepository,
+        documentPreviewsRepository,
         organizationsRepository,
         documentsStorageService,
         logger,

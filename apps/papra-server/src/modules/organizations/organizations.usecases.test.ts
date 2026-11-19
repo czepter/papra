@@ -6,6 +6,7 @@ import { assert, describe, expect, test } from 'vitest';
 import { createForbiddenError } from '../app/auth/auth.errors';
 import { createInMemoryDatabase } from '../app/database/database.test-utils';
 import { overrideConfig } from '../config/config.test-utils';
+import { createDocumentPreviewsRepository } from '../document-previews/document-previews.repository';
 import { createDocumentsRepository } from '../documents/documents.repository';
 import { createTestClock } from '../shared/clock/clock.test-utils';
 import { createTestLogger } from '../shared/logger/logger.test-utils';
@@ -1804,6 +1805,58 @@ describe('organizations usecases', () => {
 
   describe('purgeExpiredSoftDeletedOrganization', () => {
     describe('when a deleted organization reaches its scheduled purge date, it should be permanently deleted along with all its documents from storage', () => {
+      test('previews files of the organization documents are deleted from storage too', async () => {
+        const { db } = await createInMemoryDatabase({
+          organizations: [
+            {
+              id: 'organization-1',
+              name: 'Expired Org',
+              deletedAt: new Date('2025-10-05'),
+              scheduledPurgeAt: new Date('2025-11-04'),
+            },
+          ],
+          documents: [
+            {
+              id: 'doc-1',
+              organizationId: 'organization-1',
+              originalStorageKey: 'org-1/doc-1.pdf',
+              originalName: 'doc-1.pdf',
+              name: 'doc-1.pdf',
+              mimeType: 'application/pdf',
+              originalSha256Hash: 'hash1',
+            },
+          ],
+          documentPreviews: [
+            {
+              documentId: 'doc-1',
+              variant: 'thumb',
+              status: 'ready',
+              storageKey: 'org-1/previews/doc-1/thumb.webp',
+            },
+            { documentId: 'doc-1', variant: 'card', status: 'pending' },
+          ],
+        });
+
+        const deletedFiles: string[] = [];
+
+        await purgeExpiredSoftDeletedOrganization({
+          organizationId: 'organization-1',
+          documentsRepository: createDocumentsRepository({ db }),
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
+          organizationsRepository: createOrganizationsRepository({ db }),
+          documentsStorageService: {
+            deleteFile: async ({ storageKey }: { storageKey: string }) => {
+              deletedFiles.push(storageKey);
+            },
+          } as StorageService,
+        });
+
+        expect(deletedFiles.toSorted()).to.eql([
+          'org-1/doc-1.pdf',
+          'org-1/previews/doc-1/thumb.webp',
+        ]);
+      });
+
       test('successfully purges organization and deletes all documents from storage', async () => {
         const { logger, getLogs } = createTestLogger();
         const { db } = await createInMemoryDatabase({
@@ -1857,6 +1910,7 @@ describe('organizations usecases', () => {
         await purgeExpiredSoftDeletedOrganization({
           organizationId: 'organization-1',
           documentsRepository,
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
           organizationsRepository,
           documentsStorageService,
           logger,
@@ -1973,6 +2027,7 @@ describe('organizations usecases', () => {
         await purgeExpiredSoftDeletedOrganization({
           organizationId: 'organization-1',
           documentsRepository,
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
           organizationsRepository,
           documentsStorageService,
           logger,
@@ -2030,6 +2085,7 @@ describe('organizations usecases', () => {
         await purgeExpiredSoftDeletedOrganization({
           organizationId: 'organization-1',
           documentsRepository,
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
           organizationsRepository,
           documentsStorageService,
           logger,
@@ -2081,6 +2137,7 @@ describe('organizations usecases', () => {
         await purgeExpiredSoftDeletedOrganization({
           organizationId: 'organization-1',
           documentsRepository,
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
           organizationsRepository,
           documentsStorageService,
           logger,
@@ -2173,6 +2230,7 @@ describe('organizations usecases', () => {
         const { purgedOrganizationCount } = await purgeExpiredSoftDeletedOrganizations({
           organizationsRepository,
           documentsRepository,
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
           documentsStorageService,
           logger,
           now: new Date('2025-11-05'),
@@ -2260,6 +2318,7 @@ describe('organizations usecases', () => {
         const { purgedOrganizationCount } = await purgeExpiredSoftDeletedOrganizations({
           organizationsRepository,
           documentsRepository,
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
           documentsStorageService,
           logger,
           now: new Date('2025-11-05'),
@@ -2315,6 +2374,7 @@ describe('organizations usecases', () => {
         const { purgedOrganizationCount } = await purgeExpiredSoftDeletedOrganizations({
           organizationsRepository,
           documentsRepository,
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
           documentsStorageService,
           logger,
           now: new Date('2025-11-05'),

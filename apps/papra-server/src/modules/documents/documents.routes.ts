@@ -7,6 +7,7 @@ import { createTooManyRequestsError } from '../app/rate-limit/rate-limit.errors'
 import { scopeKvStoreForRateLimit } from '../app/rate-limit/rate-limit.kv-store';
 import { getRateLimit } from '../app/rate-limit/rate-limit.usecases';
 import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
+import { createDocumentPreviewsRepository } from '../document-previews/document-previews.repository';
 import { joinKeyParts } from '../kv-store/kv-store.models';
 import { organizationIdSchema } from '../organizations/organization.schemas';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
@@ -226,7 +227,7 @@ function setupGetDeletedDocumentsRoute({ app, db }: RouteDefinitionContext) {
   );
 }
 
-function setupGetDocumentRoute({ app, db }: RouteDefinitionContext) {
+function setupGetDocumentRoute({ app, db, config }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/documents/:documentId',
     requireAuthentication({ apiKeyPermissions: ['documents:read'] }),
@@ -245,6 +246,7 @@ function setupGetDocumentRoute({ app, db }: RouteDefinitionContext) {
       const organizationsRepository = createOrganizationsRepository({ db });
       const customPropertiesRepository = createCustomPropertiesRepository({ db });
       const tagsRepository = createTagsRepository({ db });
+      const documentPreviewsRepository = createDocumentPreviewsRepository({ db });
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
@@ -257,6 +259,8 @@ function setupGetDocumentRoute({ app, db }: RouteDefinitionContext) {
         document,
         tagsRepository,
         customPropertiesRepository,
+        documentPreviewsRepository,
+        arePreviewsEnabled: config.documents.previews.isEnabled,
       });
 
       return context.json({ document: enrichedDocument });
@@ -387,7 +391,12 @@ function setupGetDocumentFileRoute({ app, db, documentsStorageService }: RouteDe
   );
 }
 
-function setupGetDocumentsRoute({ app, db, documentSearchServices }: RouteDefinitionContext) {
+function setupGetDocumentsRoute({
+  app,
+  db,
+  config,
+  documentSearchServices,
+}: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/documents',
     requireAuthentication({ apiKeyPermissions: ['documents:read'] }),
@@ -413,6 +422,7 @@ function setupGetDocumentsRoute({ app, db, documentSearchServices }: RouteDefini
       const organizationsRepository = createOrganizationsRepository({ db });
       const customPropertiesRepository = createCustomPropertiesRepository({ db });
       const tagsRepository = createTagsRepository({ db });
+      const documentPreviewsRepository = createDocumentPreviewsRepository({ db });
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
@@ -428,6 +438,8 @@ function setupGetDocumentsRoute({ app, db, documentSearchServices }: RouteDefini
         documents,
         tagsRepository,
         customPropertiesRepository,
+        documentPreviewsRepository,
+        arePreviewsEnabled: config.documents.previews.isEnabled,
       });
 
       return context.json({ documents: enrichedDocuments, documentsCount });
@@ -508,6 +520,7 @@ function setupDeleteTrashDocumentRoute({
         documentId,
         organizationId,
         documentsRepository,
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
         documentsStorageService,
         eventServices,
       });
@@ -546,6 +559,7 @@ function setupDeleteAllTrashDocumentsRoute({
       await deleteAllTrashDocuments({
         organizationId,
         documentsRepository,
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
         documentsStorageService,
         eventServices,
       });

@@ -17,6 +17,7 @@ import type { Document } from './documents.types';
 import type { StorageService } from '../storage/storage.services';
 import type { EncryptionContext } from '../storage/drivers/drivers.models';
 import type { CreateDocumentStorageKey } from './document-storage.usecases';
+import type { DocumentPreviewsRepository } from '../document-previews/document-previews.repository';
 import { PassThrough } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { safely } from '@corentinth/chisels';
@@ -50,6 +51,13 @@ import {
 } from './documents.models';
 import { createDocumentsRepository } from './documents.repository';
 import { buildCreateDocumentStorageKey } from './document-storage.usecases';
+import { createDocumentPreviewsRepository } from '../document-previews/document-previews.repository';
+import {
+  deleteDocumentPreviewFiles,
+  getDocumentsPreviewApiStatuses,
+  requestDocumentPreviewsGeneration,
+} from '../document-previews/document-previews.usecases';
+import { isDocumentPreviewSupported } from '../document-previews/document-previews.models';
 import { buildResolveStoragePatternContext } from './storage-patterns/storage-pattern.usecases';
 import type { ExtractDocumentTextUsecase } from './content-extraction/content-extraction.usecases';
 
@@ -65,8 +73,10 @@ export async function createDocument({
   organizationId,
   ocrLanguages = [],
   isContentExtractionEnabled = true,
+  arePreviewsEnabled = true,
   createDocumentStorageKey,
   documentsRepository,
+  documentPreviewsRepository,
   documentsStorageService,
   generateDocumentId = generateDocumentIdImpl,
   plansRepository,
@@ -86,8 +96,10 @@ export async function createDocument({
   organizationId: string;
   ocrLanguages?: string[];
   isContentExtractionEnabled?: boolean;
+  arePreviewsEnabled?: boolean;
   createDocumentStorageKey: CreateDocumentStorageKey;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   documentsStorageService: StorageService;
   generateDocumentId?: () => string;
   plansRepository: PlansRepository;
@@ -184,6 +196,7 @@ export async function createDocument({
         userId,
         organizationId,
         documentsRepository,
+        documentPreviewsRepository,
         documentsStorageService,
         plansRepository,
         subscriptionsRepository,
@@ -193,6 +206,7 @@ export async function createDocument({
         taskServices,
         ocrLanguages,
         isContentExtractionEnabled,
+        arePreviewsEnabled,
         logger,
       });
 
@@ -226,6 +240,8 @@ export function createDocumentCreationUsecase({
 } & Partial<DocumentUsecaseDependencies>) {
   const deps = {
     documentsRepository: initialDeps.documentsRepository ?? createDocumentsRepository({ db }),
+    documentPreviewsRepository:
+      initialDeps.documentPreviewsRepository ?? createDocumentPreviewsRepository({ db }),
     plansRepository: initialDeps.plansRepository ?? createPlansRepository({ config }),
     subscriptionsRepository:
       initialDeps.subscriptionsRepository ?? createSubscriptionsRepository({ db }),
@@ -250,6 +266,7 @@ export function createDocumentCreationUsecase({
     ocrLanguages: initialDeps.ocrLanguages ?? config.documents.ocrLanguages,
     isContentExtractionEnabled:
       initialDeps.isContentExtractionEnabled ?? config.documents.isContentExtractionEnabled,
+    arePreviewsEnabled: initialDeps.arePreviewsEnabled ?? config.documents.previews.isEnabled,
     generateDocumentId: initialDeps.generateDocumentId,
     logger: initialDeps.logger,
   };
@@ -333,12 +350,14 @@ async function createNewDocument({
   planEntitlementsRepository,
   planEntitlementDefinitionRegistry,
   documentsRepository,
+  documentPreviewsRepository,
   documentsStorageService,
   newFileStorageContext,
   documentId,
   taskServices,
   ocrLanguages = [],
   isContentExtractionEnabled = true,
+  arePreviewsEnabled = true,
   logger,
 }: {
   createdAt: Date;
@@ -350,6 +369,7 @@ async function createNewDocument({
   organizationId: string;
   documentId: string;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   documentsStorageService: StorageService;
   plansRepository: PlansRepository;
   subscriptionsRepository: SubscriptionsRepository;
@@ -359,6 +379,7 @@ async function createNewDocument({
   taskServices: TaskServices;
   ocrLanguages?: string[];
   isContentExtractionEnabled?: boolean;
+  arePreviewsEnabled?: boolean;
   logger: Logger;
 }) {
   // TODO: wrap in a transaction
@@ -421,6 +442,16 @@ async function createNewDocument({
     });
   }
 
+  // Previews are generated independently of the content extraction
+  if (isDocumentPreviewSupported({ mimeType, arePreviewsEnabled })) {
+    await requestDocumentPreviewsGeneration({
+      documentId,
+      organizationId,
+      documentPreviewsRepository,
+      taskServices,
+    });
+  }
+
   logger.info({ documentId, userId, organizationId, mimeType }, 'Document created');
 
   return { document };
@@ -459,14 +490,23 @@ export async function ensureDocumentExists({
 export async function hardDeleteDocument({
   document,
   documentsRepository,
+  documentPreviewsRepository,
   documentsStorageService,
   eventServices,
 }: {
   document: Pick<Document, 'id' | 'originalStorageKey' | 'organizationId'>;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   documentsStorageService: StorageService;
   eventServices: EventServices;
 }) {
+  // The previews records are deleted by cascade with the document, so their files have to be collected before
+  await deleteDocumentPreviewFiles({
+    documentId: document.id,
+    documentPreviewsRepository,
+    documentsStorageService,
+  });
+
   await Promise.all([
     documentsRepository.hardDeleteDocument({ documentId: document.id }),
     documentsStorageService.deleteFile({ storageKey: document.originalStorageKey }),
@@ -480,6 +520,7 @@ export async function hardDeleteDocument({
 
 export async function deleteExpiredDocuments({
   documentsRepository,
+  documentPreviewsRepository,
   documentsStorageService,
   eventServices,
   config,
@@ -487,6 +528,7 @@ export async function deleteExpiredDocuments({
   logger = createLogger({ namespace: 'documents:deleteExpiredDocuments' }),
 }: {
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   documentsStorageService: StorageService;
   eventServices: EventServices;
   config: Config;
@@ -507,6 +549,7 @@ export async function deleteExpiredDocuments({
           hardDeleteDocument({
             document,
             documentsRepository,
+            documentPreviewsRepository,
             documentsStorageService,
             eventServices,
           }),
@@ -528,12 +571,14 @@ export async function deleteTrashDocument({
   documentId,
   organizationId,
   documentsRepository,
+  documentPreviewsRepository,
   documentsStorageService,
   eventServices,
 }: {
   documentId: string;
   organizationId: string;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   documentsStorageService: StorageService;
   eventServices: EventServices;
 }) {
@@ -550,6 +595,7 @@ export async function deleteTrashDocument({
   await hardDeleteDocument({
     document,
     documentsRepository,
+    documentPreviewsRepository,
     documentsStorageService,
     eventServices,
   });
@@ -558,11 +604,13 @@ export async function deleteTrashDocument({
 export async function deleteAllTrashDocuments({
   organizationId,
   documentsRepository,
+  documentPreviewsRepository,
   documentsStorageService,
   eventServices,
 }: {
   organizationId: string;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   documentsStorageService: StorageService;
   eventServices: EventServices;
 }) {
@@ -580,6 +628,7 @@ export async function deleteAllTrashDocuments({
         await hardDeleteDocument({
           document,
           documentsRepository,
+          documentPreviewsRepository,
           documentsStorageService,
           eventServices,
         });
@@ -697,10 +746,14 @@ export async function enrichAndFormatDocumentsForApi({
   documents,
   tagsRepository,
   customPropertiesRepository,
+  documentPreviewsRepository,
+  arePreviewsEnabled,
 }: {
   documents: Array<PartialBy<Document, 'content'>>;
   tagsRepository: TagsRepository;
   customPropertiesRepository: CustomPropertiesRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
+  arePreviewsEnabled: boolean;
 }) {
   if (documents.length === 0) {
     return { enrichedDocuments: [] };
@@ -728,13 +781,17 @@ export async function enrichAndFormatDocumentsForApi({
 
   const documentIds = documents.map((d) => d.id);
 
-  const [{ tagsByDocumentId }, { valuesByDocumentId }, { propertyDefinitions }] = await Promise.all(
-    [
-      tagsRepository.getTagsByDocumentIds({ documentIds }),
-      customPropertiesRepository.getCustomPropertyValuesByDocumentIds({ documentIds }),
-      customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId }),
-    ],
-  );
+  const [
+    { tagsByDocumentId },
+    { valuesByDocumentId },
+    { propertyDefinitions },
+    { previewStatusByDocumentId },
+  ] = await Promise.all([
+    tagsRepository.getTagsByDocumentIds({ documentIds }),
+    customPropertiesRepository.getCustomPropertyValuesByDocumentIds({ documentIds }),
+    customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId }),
+    getDocumentsPreviewApiStatuses({ documents, arePreviewsEnabled, documentPreviewsRepository }),
+  ]);
 
   return {
     enrichedDocuments: documents.map((document) => ({
@@ -744,6 +801,7 @@ export async function enrichAndFormatDocumentsForApi({
         rawValues: valuesByDocumentId[document.id] ?? [],
         propertyDefinitions,
       }),
+      previewStatus: previewStatusByDocumentId[document.id] ?? 'pending',
     })),
   };
 }
@@ -752,15 +810,21 @@ export async function enrichAndFormatDocumentForApi({
   document,
   tagsRepository,
   customPropertiesRepository,
+  documentPreviewsRepository,
+  arePreviewsEnabled,
 }: {
   document: PartialBy<Document, 'content'>;
   tagsRepository: TagsRepository;
   customPropertiesRepository: CustomPropertiesRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
+  arePreviewsEnabled: boolean;
 }) {
   const { enrichedDocuments } = await enrichAndFormatDocumentsForApi({
     documents: [document],
     tagsRepository,
     customPropertiesRepository,
+    documentPreviewsRepository,
+    arePreviewsEnabled,
   });
 
   const [enrichedDocument] = enrichedDocuments;

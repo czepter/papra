@@ -5,6 +5,8 @@ import { createInMemoryDatabase } from '../app/database/database.test-utils';
 import { createTestEventServices } from '../app/events/events.test-utils';
 import { overrideConfig } from '../config/config.test-utils';
 import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
+import { createDocumentPreviewsRepository } from '../document-previews/document-previews.repository';
+import { documentPreviewsTable } from '../document-previews/document-previews.table';
 import { ORGANIZATION_ROLES } from '../organizations/organizations.constants';
 import { createOrganizationDocumentStorageLimitReachedError } from '../organizations/organizations.errors';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
@@ -25,6 +27,8 @@ import { createDocumentsRepository } from './documents.repository';
 import { documentsTable } from './documents.table';
 import {
   createDocumentCreationUsecase,
+  deleteExpiredDocuments,
+  deleteTrashDocument,
   enrichAndFormatDocumentsForApi,
   extractAndSaveDocumentFileContent,
   restoreDocument,
@@ -767,6 +771,174 @@ describe('documents usecases', () => {
         mimeType: 'text/plain',
       });
     });
+
+    describe('previews generation scheduling', () => {
+      async function createDocumentAndGetJobNames({
+        mimeType,
+        config,
+      }: {
+        mimeType: string;
+        config: Parameters<typeof overrideConfig>[0];
+      }) {
+        const taskServices = createInMemoryTaskServices();
+        const { db } = await createInMemoryDatabase({
+          organizations: [{ id: 'organization-1', name: 'Organization 1' }],
+        });
+        const createDocument = createDocumentCreationUsecase({
+          db,
+          config: overrideConfig({ organizationPlans: { isFreePlanUnlimited: true }, ...config }),
+          documentsStorageService: createInMemoryStorageService(),
+          taskServices,
+          eventServices: createTestEventServices(),
+        });
+
+        await createDocument({
+          fileStream: createReadableStream({ content: 'content' }),
+          fileName: 'file',
+          mimeType,
+          organizationId: 'organization-1',
+        });
+
+        const { count } = await taskServices.getJobCount();
+        const jobNames: string[] = [];
+        for (let index = 0; index < count; index++) {
+          const { job } = await taskServices.getDriver().getNextJobAndMarkAsProcessing({
+            abortSignal: AbortSignal.timeout(1000),
+          });
+          jobNames.push(job.taskName);
+        }
+
+        return { jobNames: jobNames.toSorted(), db };
+      }
+
+      test('a previews generation job is scheduled for documents that can have previews, independently of the content extraction', async () => {
+        const { jobNames, db } = await createDocumentAndGetJobNames({
+          mimeType: 'application/pdf',
+          config: { documents: { isContentExtractionEnabled: false } },
+        });
+
+        expect(jobNames).to.eql(['generate-document-previews']);
+        expect((await db.select().from(documentPreviewsTable)).map(({ status }) => status)).to.eql([
+          'pending',
+          'pending',
+          'pending',
+        ]);
+      });
+
+      test('both the content extraction and the previews generation jobs are scheduled by default', async () => {
+        const { jobNames } = await createDocumentAndGetJobNames({
+          mimeType: 'image/png',
+          config: {},
+        });
+
+        expect(jobNames).to.eql(['extract-document-file-content', 'generate-document-previews']);
+      });
+
+      test('no previews generation job is scheduled for documents types without previews', async () => {
+        const { jobNames, db } = await createDocumentAndGetJobNames({
+          mimeType: 'text/plain',
+          config: { documents: { isContentExtractionEnabled: false } },
+        });
+
+        expect(jobNames).to.eql([]);
+        expect(await db.select().from(documentPreviewsTable)).to.eql([]);
+      });
+
+      test('no previews generation job is scheduled when previews are disabled', async () => {
+        const { jobNames } = await createDocumentAndGetJobNames({
+          mimeType: 'application/pdf',
+          config: {
+            documents: { isContentExtractionEnabled: false, previews: { isEnabled: false } },
+          },
+        });
+
+        expect(jobNames).to.eql([]);
+      });
+    });
+  });
+
+  describe('hard deletion', () => {
+    async function createDocumentWithPreviews() {
+      const { db } = await createInMemoryDatabase({
+        organizations: [{ id: 'organization-1', name: 'Organization 1' }],
+        documents: [
+          {
+            id: 'doc-1',
+            organizationId: 'organization-1',
+            name: 'file.pdf',
+            originalName: 'file.pdf',
+            mimeType: 'application/pdf',
+            originalStorageKey: 'organization-1/originals/doc-1.pdf',
+            originalSha256Hash: 'hash',
+            isDeleted: true,
+            deletedAt: new Date('2025-01-01'),
+          },
+        ],
+      });
+      const documentsStorageService = createInMemoryStorageService();
+      const documentPreviewsRepository = createDocumentPreviewsRepository({ db });
+
+      for (const storageKey of [
+        'organization-1/originals/doc-1.pdf',
+        'organization-1/previews/doc-1/thumb.webp',
+        'organization-1/previews/doc-1/card.webp',
+      ]) {
+        await documentsStorageService.saveFile({
+          storageKey,
+          fileStream: createReadableStream({ content: 'content' }),
+          fileName: 'file',
+          mimeType: 'application/pdf',
+        });
+      }
+      for (const variant of ['thumb', 'card'] as const) {
+        await documentPreviewsRepository.saveReadyDocumentPreview({
+          documentId: 'doc-1',
+          variant,
+          storageKey: `organization-1/previews/doc-1/${variant}.webp`,
+          mimeType: 'image/webp',
+          size: 7,
+          width: 1,
+          height: 1,
+        });
+      }
+
+      return { db, documentsStorageService, documentPreviewsRepository };
+    }
+
+    test('hard deleting a trashed document deletes its original file and its previews files and records', async () => {
+      const { db, documentsStorageService, documentPreviewsRepository } =
+        await createDocumentWithPreviews();
+
+      await deleteTrashDocument({
+        documentId: 'doc-1',
+        organizationId: 'organization-1',
+        documentsRepository: createDocumentsRepository({ db }),
+        documentPreviewsRepository,
+        documentsStorageService,
+        eventServices: createTestEventServices(),
+      });
+
+      expect([...documentsStorageService._getStorage().keys()]).to.eql([]);
+      expect(await db.select().from(documentPreviewsTable)).to.eql([]);
+      expect(await db.select().from(documentsTable)).to.eql([]);
+    });
+
+    test('expired deleted documents are deleted along with their previews files', async () => {
+      const { db, documentsStorageService, documentPreviewsRepository } =
+        await createDocumentWithPreviews();
+
+      const { deletedDocumentsCount } = await deleteExpiredDocuments({
+        config: overrideConfig({ documents: { deletedDocumentsRetentionDays: 30 } }),
+        now: new Date('2025-03-01'),
+        documentsRepository: createDocumentsRepository({ db }),
+        documentPreviewsRepository,
+        documentsStorageService,
+        eventServices: createTestEventServices(),
+      });
+
+      expect(deletedDocumentsCount).to.eql(1);
+      expect([...documentsStorageService._getStorage().keys()]).to.eql([]);
+    });
   });
 
   describe('extractAndSaveDocumentFileContent', () => {
@@ -1095,6 +1267,8 @@ describe('documents usecases', () => {
         documents: [],
         tagsRepository: createTagsRepository({ db }),
         customPropertiesRepository: createCustomPropertiesRepository({ db }),
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
+        arePreviewsEnabled: true,
       });
 
       expect(enrichedDocuments).to.eql([]);
@@ -1125,6 +1299,8 @@ describe('documents usecases', () => {
         documents: [document!],
         tagsRepository: createTagsRepository({ db }),
         customPropertiesRepository: createCustomPropertiesRepository({ db }),
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
+        arePreviewsEnabled: true,
       });
 
       expect(enrichedDocument).not.to.have.property('originalStorageKey');
@@ -1149,6 +1325,8 @@ describe('documents usecases', () => {
         documents: [document!],
         tagsRepository: createTagsRepository({ db }),
         customPropertiesRepository: createCustomPropertiesRepository({ db }),
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
+        arePreviewsEnabled: true,
       });
 
       expect(enrichedDocument!.tags).to.eql([]);
@@ -1198,6 +1376,8 @@ describe('documents usecases', () => {
         documents: [doc1!, doc2!],
         tagsRepository: createTagsRepository({ db }),
         customPropertiesRepository: createCustomPropertiesRepository({ db }),
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
+        arePreviewsEnabled: true,
       });
 
       expect(enrichedDocuments[0]!.tags.map((t) => t.id).toSorted()).to.eql(['tag-1', 'tag-2']);
@@ -1223,6 +1403,8 @@ describe('documents usecases', () => {
         documents: [document!],
         tagsRepository: createTagsRepository({ db }),
         customPropertiesRepository: createCustomPropertiesRepository({ db }),
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
+        arePreviewsEnabled: true,
       });
 
       expect(enrichedDocument!.customProperties).to.eql([
@@ -1265,6 +1447,8 @@ describe('documents usecases', () => {
         documents: [doc1!, doc2!],
         tagsRepository: createTagsRepository({ db }),
         customPropertiesRepository: createCustomPropertiesRepository({ db }),
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
+        arePreviewsEnabled: true,
       });
 
       expect(enrichedDocuments[0]!.customProperties).to.eql([
