@@ -244,6 +244,8 @@ export const DocumentTagsList: Component<
     tags: Tag[];
     documentId: string;
     organizationId: string;
+    // Called once the added and removed tags have been saved
+    onTagsSaved?: () => void;
   } & Pick<ComponentProps<typeof TagList>, 'tagClass' | 'asLink' | 'triggerClass'>
 > = (props) => {
   const [getDocumentsTags, setDocumentsTags] = createSignal<Tag[]>(props.tags);
@@ -280,6 +282,8 @@ export const DocumentTagsList: Component<
     await queryClient.invalidateQueries({
       queryKey: ['organizations', props.organizationId, 'documents', props.documentId, 'tags'],
     });
+
+    props.onTagsSaved?.();
   };
 
   return (

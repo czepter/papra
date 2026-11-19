@@ -17,6 +17,7 @@ import { useDebounce } from '@/modules/shared/utils/timing';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { DocumentQuickLook } from '../components/document-quick-look.component';
 import { DocumentsViewToggle } from '../components/documents-view-toggle.component';
 import { DocumentUploadArea } from '../components/document-upload-area.component';
 import { DocumentsBatchTagDialog } from '../components/documents-batch-tag-dialog.component';
@@ -27,6 +28,10 @@ import {
   standardActionsColumn,
   tagsColumn,
 } from '../components/documents-list.component';
+import {
+  createDocumentsKeyboardNavigation,
+  getDocumentElement,
+} from '../documents-keyboard.composables';
 import { batchTrashDocuments, batchUpdateDocumentTags } from '../documents-batch.services';
 import {
   DEFAULT_DOCUMENT_SEARCH_SORT_FIELD,
@@ -53,6 +58,7 @@ export const DocumentsPage: Component = () => {
     getOrganizationId: () => params.organizationId,
     getTagName: () => getSingleTagFromSearchQuery({ query: debouncedSearchQuery() }),
   });
+  const [getQuickLookId, setQuickLookId] = createSignal<string>();
   const [getRowSelection, setInternalRowSelection] = createSignal<RowSelectionState>({});
   const [getSelectAllMatchingQuery, setSelectAllMatchingQuery] = createSignal(false);
   const [getTagDialogOpen, setTagDialogOpen] = createSignal(false);
@@ -109,6 +115,18 @@ export const DocumentsPage: Component = () => {
       }),
     placeholderData: keepPreviousData,
   }));
+
+  const keyboardNavigation = createDocumentsKeyboardNavigation({
+    getDocuments: () => documentsQuery.data?.documents ?? [],
+    getView: viewPreference.getView,
+    isEnabled: () => getQuickLookId() === undefined,
+    onOpen: (document) => setQuickLookId(document.id),
+  });
+
+  function openQuickLook(document: { id: string }) {
+    keyboardNavigation.setFocusedId(document.id);
+    setQuickLookId(document.id);
+  }
 
   const setRowSelection: Setter<RowSelectionState> = (valueOrUpdater) => {
     setSelectAllMatchingQuery(false);
@@ -461,12 +479,26 @@ export const DocumentsPage: Component = () => {
               getSorting={getSorting}
               setSorting={setSorting}
               view={viewPreference.getView()}
+              focusedDocumentId={keyboardNavigation.getFocusedId()}
+              onQuickLook={openQuickLook}
               extraColumns={[
                 tagsColumn,
                 documentDateColumn,
                 createdAtColumn,
                 standardActionsColumn,
               ]}
+            />
+
+            <DocumentQuickLook
+              documents={documentsQuery.data?.documents ?? []}
+              documentId={getQuickLookId()}
+              searchQuery={debouncedSearchQuery()}
+              onDocumentChange={(documentId) => {
+                keyboardNavigation.setFocusedId(documentId);
+                setQuickLookId(documentId);
+                getDocumentElement({ documentId })?.scrollIntoView({ block: 'nearest' });
+              }}
+              onClose={() => setQuickLookId(undefined)}
             />
 
             <DocumentsBatchTagDialog
