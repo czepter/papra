@@ -57,6 +57,7 @@ import {
   getDocumentsPreviewApiStatuses,
   requestDocumentPreviewsGeneration,
 } from '../document-previews/document-previews.usecases';
+import { DOCUMENT_PREVIEW_API_STATUSES } from '../document-previews/document-previews.constants';
 import { isDocumentPreviewSupported } from '../document-previews/document-previews.models';
 import { buildResolveStoragePatternContext } from './storage-patterns/storage-pattern.usecases';
 import type { ExtractDocumentTextUsecase } from './content-extraction/content-extraction.usecases';
@@ -742,14 +743,16 @@ export async function restoreDocument({
   });
 }
 
-export async function enrichAndFormatDocumentsForApi({
+export async function enrichAndFormatDocumentsForApi<
+  T extends PartialBy<Document, 'content'> & { contentExcerpt?: string },
+>({
   documents,
   tagsRepository,
   customPropertiesRepository,
   documentPreviewsRepository,
   arePreviewsEnabled,
 }: {
-  documents: Array<PartialBy<Document, 'content'>>;
+  documents: T[];
   tagsRepository: TagsRepository;
   customPropertiesRepository: CustomPropertiesRepository;
   documentPreviewsRepository: DocumentPreviewsRepository;
@@ -801,7 +804,8 @@ export async function enrichAndFormatDocumentsForApi({
         rawValues: valuesByDocumentId[document.id] ?? [],
         propertyDefinitions,
       }),
-      previewStatus: previewStatusByDocumentId[document.id] ?? 'pending',
+      previewStatus:
+        previewStatusByDocumentId[document.id] ?? DOCUMENT_PREVIEW_API_STATUSES.PENDING,
     })),
   };
 }

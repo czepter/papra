@@ -1,9 +1,11 @@
 import type { generatePreviewImages } from '@papra/lecture';
 import { Buffer } from 'node:buffer';
 import { createNoopLogger } from '@crowlog/logger';
+import { eq } from 'drizzle-orm';
 import { describe, expect, test, vi } from 'vitest';
 import { createInMemoryDatabase } from '../app/database/database.test-utils';
 import { createDocumentsRepository } from '../documents/documents.repository';
+import { documentsTable } from '../documents/documents.table';
 import {
   collectReadableStreamToBuffer,
   createReadableStream,
@@ -12,6 +14,7 @@ import { inMemoryStorageDriverFactory } from '../storage/drivers/memory/memory.s
 import { createStorageServiceFromDriver } from '../storage/storage.services';
 import { createInMemoryStorageService } from '../storage/storage.test-utils';
 import { createInMemoryTaskServices } from '../tasks/tasks.test-utils';
+import { PREVIEW_VARIANTS } from './document-previews.constants';
 import { createDocumentPreviewsRepository } from './document-previews.repository';
 import { documentPreviewsTable } from './document-previews.table';
 import {
@@ -285,6 +288,97 @@ describe('document previews usecases', () => {
       expect(deps.generatePreviews).toHaveBeenCalledTimes(2);
     });
 
+    test('a failure does not overwrite the variants that are already ready', async () => {
+      const deps = await createTestDeps();
+      await deps.documentPreviewsRepository.saveReadyDocumentPreview({
+        documentId: 'doc-1',
+        variant: 'thumb',
+        storageKey: 'organization-1/previews/doc-1/thumb.webp',
+        mimeType: 'image/webp',
+        size: 10,
+        width: 68,
+        height: 96,
+      });
+      deps.generatePreviews.mockRejectedValue(new Error('Corrupted file'));
+
+      expect(
+        (
+          await generateDocumentPreviews({
+            documentId: 'doc-1',
+            organizationId: 'organization-1',
+            logger: createNoopLogger(),
+            ...deps,
+          })
+        ).status,
+      ).to.eql('failed');
+
+      expect(
+        (await deps.db.select().from(documentPreviewsTable))
+          .map(
+            ({ variant, status, failedAttemptsCount }) =>
+              `${variant}:${status}:${failedAttemptsCount}`,
+          )
+          .toSorted(),
+      ).to.eql(['card:failed:1', 'preview:failed:1', 'thumb:ready:0']);
+    });
+
+    test('a running job refreshes its pending previews so they are not considered stale', async () => {
+      const deps = await createTestDeps();
+      const longAgo = new Date(Date.now() - 60 * 60 * 1000);
+      await deps.db.insert(documentPreviewsTable).values(
+        PREVIEW_VARIANTS.map((variant) => ({
+          documentId: 'doc-1',
+          variant,
+          status: 'pending' as const,
+          createdAt: longAgo,
+          updatedAt: longAgo,
+        })),
+      );
+
+      let updatedAtDuringGeneration: Date[] = [];
+      deps.generatePreviews.mockImplementationOnce(async () => {
+        updatedAtDuringGeneration = (await deps.db.select().from(documentPreviewsTable)).map(
+          ({ updatedAt }) => updatedAt,
+        );
+        throw new Error('stop');
+      });
+
+      await generateDocumentPreviews({
+        documentId: 'doc-1',
+        organizationId: 'organization-1',
+        logger: createNoopLogger(),
+        ...deps,
+      });
+
+      expect(updatedAtDuringGeneration).to.have.length(3);
+      expect(
+        updatedAtDuringGeneration.every((date) => date.getTime() > longAgo.getTime() + 1000),
+      ).to.eql(true);
+    });
+
+    test('when the document is hard deleted while the job is running, the files written are deleted and nothing is recorded', async () => {
+      const deps = await createTestDeps();
+      const originalGenerate = deps.generatePreviews.getMockImplementation()!;
+      deps.generatePreviews.mockImplementation(async (args) => {
+        const result = await originalGenerate(args);
+        await deps.db.delete(documentsTable).where(eq(documentsTable.id, 'doc-1'));
+        return result;
+      });
+
+      const { status } = await generateDocumentPreviews({
+        documentId: 'doc-1',
+        organizationId: 'organization-1',
+        logger: createNoopLogger(),
+        ...deps,
+      });
+
+      expect(status).to.eql('skipped');
+      expect([...deps.documentsStorageService._getStorage().keys()]).to.eql([
+        'organization-1/originals/doc-1',
+      ]);
+      expect(await deps.db.select().from(documentPreviewsTable)).to.eql([]);
+    });
+
     test('a previously failed generation that succeeds on retry resets the failure', async () => {
       const deps = await createTestDeps();
       deps.generatePreviews.mockRejectedValueOnce(new Error('Temporary failure'));
@@ -441,6 +535,24 @@ describe('document previews usecases', () => {
   });
 
   describe('requestDocumentPreviewsGeneration', () => {
+    test('concurrent requests for a document without previews schedule exactly one job', async () => {
+      const deps = await createTestDeps();
+
+      const results = await Promise.all(
+        Array.from({ length: 5 }, async () =>
+          requestDocumentPreviewsGeneration({
+            documentId: 'doc-1',
+            organizationId: 'organization-1',
+            documentPreviewsRepository: deps.documentPreviewsRepository,
+            taskServices: deps.taskServices,
+          }),
+        ),
+      );
+
+      expect(results.filter(({ isScheduled }) => isScheduled)).to.have.length(1);
+      expect(await deps.taskServices.getJobCount()).to.eql({ count: 1 });
+    });
+
     test('pending records are created and a job is scheduled', async () => {
       const deps = await createTestDeps();
 
@@ -463,9 +575,10 @@ describe('document previews usecases', () => {
   describe('getDocumentsPreviewApiStatuses', () => {
     test('the status of each document is derived from its type, the configuration and its stored previews', async () => {
       const deps = await createTestDeps();
-      await deps.documentPreviewsRepository.markDocumentPreviewsAsPending({
+      await deps.documentPreviewsRepository.claimDocumentPreviewsGeneration({
         documentId: 'doc-1',
         variants: ['thumb', 'card', 'preview'],
+        staleBefore: new Date(0),
       });
       const getStatuses = async ({ arePreviewsEnabled = true } = {}) =>
         (

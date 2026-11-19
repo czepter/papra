@@ -5,8 +5,11 @@ import type {
   DocumentPreviewVariant,
 } from './document-previews.types';
 import { injectArguments } from '@corentinth/chisels';
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
-import { DOCUMENT_PREVIEW_STATUSES } from './document-previews.constants';
+import { and, eq, inArray, lt, ne, or, sql } from 'drizzle-orm';
+import {
+  DOCUMENT_PREVIEW_STATUSES,
+  MAX_PREVIEW_GENERATION_ATTEMPTS,
+} from './document-previews.constants';
 import { documentPreviewsTable } from './document-previews.table';
 
 export type DocumentPreviewsRepository = ReturnType<typeof createDocumentPreviewsRepository>;
@@ -17,7 +20,8 @@ export function createDocumentPreviewsRepository({ db }: { db: Database }) {
       getDocumentPreviews,
       getDocumentPreview,
       getDocumentsPreviews,
-      markDocumentPreviewsAsPending,
+      claimDocumentPreviewsGeneration,
+      refreshPendingDocumentPreviews,
       saveReadyDocumentPreview,
       markDocumentPreviewsAsFailed,
     },
@@ -81,19 +85,23 @@ async function getDocumentsPreviews({
   return { previewsByDocumentId };
 }
 
-// Creates the pending previews of a document or flags failed ones as pending again (keeping their failed attempts count), ready previews are left untouched
-async function markDocumentPreviewsAsPending({
+// Atomically claims the generation of the previews of a document: missing variants are created as pending, failed ones that can still be retried
+// and pending ones that have been waiting since before `staleBefore` are flagged as pending again (keeping their failed attempts count).
+// Ready variants and fresh pending ones are left untouched. Returns the claimed variants, when empty someone else already owns the generation.
+async function claimDocumentPreviewsGeneration({
   documentId,
   variants,
   now = new Date(),
+  staleBefore,
   db,
 }: {
   documentId: string;
   variants: readonly DocumentPreviewVariant[];
   now?: Date;
+  staleBefore: Date;
   db: Database;
 }) {
-  await db
+  const claimedPreviews = await db
     .insert(documentPreviewsTable)
     .values(
       variants.map((variant) => ({
@@ -107,8 +115,41 @@ async function markDocumentPreviewsAsPending({
     .onConflictDoUpdate({
       target: [documentPreviewsTable.documentId, documentPreviewsTable.variant],
       set: { status: DOCUMENT_PREVIEW_STATUSES.PENDING, updatedAt: now },
-      setWhere: ne(documentPreviewsTable.status, DOCUMENT_PREVIEW_STATUSES.READY),
-    });
+      setWhere: or(
+        and(
+          eq(documentPreviewsTable.status, DOCUMENT_PREVIEW_STATUSES.FAILED),
+          lt(documentPreviewsTable.failedAttemptsCount, MAX_PREVIEW_GENERATION_ATTEMPTS),
+        ),
+        and(
+          eq(documentPreviewsTable.status, DOCUMENT_PREVIEW_STATUSES.PENDING),
+          lt(documentPreviewsTable.updatedAt, staleBefore),
+        ),
+      ),
+    })
+    .returning({ variant: documentPreviewsTable.variant });
+
+  return { claimedVariants: claimedPreviews.map(({ variant }) => variant) };
+}
+
+// Called when a generation job starts so that the pending previews it owns are not considered stale while it is running
+async function refreshPendingDocumentPreviews({
+  documentId,
+  now = new Date(),
+  db,
+}: {
+  documentId: string;
+  now?: Date;
+  db: Database;
+}) {
+  await db
+    .update(documentPreviewsTable)
+    .set({ updatedAt: now })
+    .where(
+      and(
+        eq(documentPreviewsTable.documentId, documentId),
+        eq(documentPreviewsTable.status, DOCUMENT_PREVIEW_STATUSES.PENDING),
+      ),
+    );
 }
 
 async function saveReadyDocumentPreview({
@@ -161,6 +202,7 @@ async function saveReadyDocumentPreview({
   return { preview };
 }
 
+// Only flags the variants that are not ready yet as failed
 async function markDocumentPreviewsAsFailed({
   documentId,
   variants,
@@ -187,5 +229,7 @@ async function markDocumentPreviewsAsFailed({
         failedAttemptsCount: sql`${documentPreviewsTable.failedAttemptsCount} + 1`,
         updatedAt: new Date(),
       },
+      // Variants that are already ready (e.g. saved by a concurrent job) are not downgraded
+      setWhere: ne(documentPreviewsTable.status, DOCUMENT_PREVIEW_STATUSES.READY),
     });
 }

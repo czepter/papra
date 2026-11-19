@@ -14,37 +14,50 @@ import {
   DOCUMENT_PREVIEW_API_STATUSES,
   DOCUMENT_PREVIEW_STATUSES,
   GENERATE_DOCUMENT_PREVIEWS_TASK_NAME,
-  MAX_PREVIEW_GENERATION_ATTEMPTS,
+  PENDING_PREVIEW_STALE_DELAY_MS,
   PREVIEW_VARIANTS,
 } from './document-previews.constants';
 import {
+  areAllPreviewVariantsReady,
   buildDocumentPreviewStorageKey,
   getDocumentPreviewApiStatus,
   isDocumentPreviewSupported,
   isPreviewGenerationRequired,
+  isPreviewPermanentlyFailed,
 } from './document-previews.models';
 
+// Claiming the previews and scheduling the job are tied together: a job is only scheduled by the call that actually claimed the generation,
+// so concurrent requests (or polling) for the same document never stack jobs
 export async function requestDocumentPreviewsGeneration({
   documentId,
   organizationId,
   documentPreviewsRepository,
   taskServices,
+  now = new Date(),
 }: {
   documentId: string;
   organizationId: string;
-  documentPreviewsRepository: Pick<DocumentPreviewsRepository, 'markDocumentPreviewsAsPending'>;
+  documentPreviewsRepository: Pick<DocumentPreviewsRepository, 'claimDocumentPreviewsGeneration'>;
   taskServices: Pick<TaskServices, 'scheduleJob'>;
+  now?: Date;
 }) {
-  // Pending records prevent scheduling a new job each time a preview is requested while the first job is still running
-  await documentPreviewsRepository.markDocumentPreviewsAsPending({
+  const { claimedVariants } = await documentPreviewsRepository.claimDocumentPreviewsGeneration({
     documentId,
     variants: PREVIEW_VARIANTS,
+    now,
+    staleBefore: new Date(now.getTime() - PENDING_PREVIEW_STALE_DELAY_MS),
   });
+
+  if (claimedVariants.length === 0) {
+    return { isScheduled: false };
+  }
 
   await taskServices.scheduleJob({
     taskName: GENERATE_DOCUMENT_PREVIEWS_TASK_NAME,
     data: { documentId, organizationId },
   });
+
+  return { isScheduled: true };
 }
 
 export async function generateDocumentPreviews({
@@ -61,7 +74,10 @@ export async function generateDocumentPreviews({
   documentsRepository: Pick<DocumentsRepository, 'getDocumentById'>;
   documentPreviewsRepository: Pick<
     DocumentPreviewsRepository,
-    'getDocumentPreviews' | 'saveReadyDocumentPreview' | 'markDocumentPreviewsAsFailed'
+    | 'getDocumentPreviews'
+    | 'saveReadyDocumentPreview'
+    | 'markDocumentPreviewsAsFailed'
+    | 'refreshPendingDocumentPreviews'
   >;
   documentsStorageService: Pick<
     StorageService,
@@ -78,7 +94,7 @@ export async function generateDocumentPreviews({
     return { status: 'skipped' };
   }
 
-  // The generation can be disabled between the scheduling and the execution of the job
+  // Documents of an unsupported type have no preview (the job may have been scheduled before the type support changed)
   if (!isPreviewSupportedMimeType({ mimeType: document.mimeType })) {
     return { status: 'unsupported' };
   }
@@ -87,26 +103,18 @@ export async function generateDocumentPreviews({
     documentId,
   });
 
-  const getExistingPreview = (variant: DocumentPreviewVariant) =>
-    existingPreviews.find((preview) => preview.variant === variant);
-
-  if (
-    PREVIEW_VARIANTS.every(
-      (variant) => getExistingPreview(variant)?.status === DOCUMENT_PREVIEW_STATUSES.READY,
-    )
-  ) {
+  if (areAllPreviewVariantsReady({ previews: existingPreviews })) {
     return { status: 'already-generated' };
   }
 
-  if (
-    existingPreviews.some(
-      ({ status, failedAttemptsCount }) =>
-        status === DOCUMENT_PREVIEW_STATUSES.FAILED &&
-        failedAttemptsCount >= MAX_PREVIEW_GENERATION_ATTEMPTS,
-    )
-  ) {
+  if (existingPreviews.some(isPreviewPermanentlyFailed)) {
     return { status: 'failed' };
   }
+
+  // The job owns the pending previews while it runs, they must not be considered stale (and rescheduled) in the meantime
+  await documentPreviewsRepository.refreshPendingDocumentPreviews({ documentId });
+
+  const writtenStorageKeys: string[] = [];
 
   const [, error] = await safely(
     (async () => {
@@ -135,6 +143,8 @@ export async function generateDocumentPreviews({
           variant,
         });
 
+        writtenStorageKeys.push(storageKey);
+
         // Storage drivers refuse to overwrite files, a leftover of a previous interrupted run is removed first
         if (await documentsStorageService.fileExists({ storageKey })) {
           await documentsStorageService.deleteFile({ storageKey });
@@ -162,6 +172,21 @@ export async function generateDocumentPreviews({
     })(),
   );
 
+  // The document may have been hard deleted while the job was running, the files written since have no record to be cleaned up with
+  const { isDocumentGone } = await deleteOrphanPreviewFiles({
+    documentId,
+    organizationId,
+    writtenStorageKeys,
+    documentsRepository,
+    documentPreviewsRepository,
+    documentsStorageService,
+    logger,
+  });
+
+  if (isDocumentGone) {
+    return { status: 'skipped' };
+  }
+
   if (error) {
     logger.error({ error, documentId, organizationId }, 'Failed to generate document previews');
     await documentPreviewsRepository.markDocumentPreviewsAsFailed({
@@ -175,6 +200,50 @@ export async function generateDocumentPreviews({
   logger.info({ documentId, organizationId }, 'Document previews generated');
 
   return { status: 'generated' };
+}
+
+async function deleteOrphanPreviewFiles({
+  documentId,
+  organizationId,
+  writtenStorageKeys,
+  documentsRepository,
+  documentPreviewsRepository,
+  documentsStorageService,
+  logger,
+}: {
+  documentId: string;
+  organizationId: string;
+  writtenStorageKeys: string[];
+  documentsRepository: Pick<DocumentsRepository, 'getDocumentById'>;
+  documentPreviewsRepository: Pick<DocumentPreviewsRepository, 'getDocumentPreviews'>;
+  documentsStorageService: Pick<StorageService, 'deleteFile'>;
+  logger: Logger;
+}) {
+  if (writtenStorageKeys.length === 0) {
+    return { isDocumentGone: false };
+  }
+
+  const { document } = await documentsRepository.getDocumentById({ documentId, organizationId });
+  const { previews } = document
+    ? await documentPreviewsRepository.getDocumentPreviews({ documentId })
+    : { previews: [] };
+  const recordedStorageKeys = new Set(previews.map(({ storageKey }) => storageKey));
+
+  const orphanStorageKeys = writtenStorageKeys.filter(
+    (storageKey) => !document || !recordedStorageKeys.has(storageKey),
+  );
+
+  await Promise.all(
+    orphanStorageKeys.map(async (storageKey) => {
+      const [, error] = await safely(documentsStorageService.deleteFile({ storageKey }));
+
+      if (error) {
+        logger.error({ error, documentId, storageKey }, 'Failed to delete orphan preview file');
+      }
+    }),
+  );
+
+  return { isDocumentGone: !document };
 }
 
 export type GetDocumentPreviewResult =
@@ -208,7 +277,7 @@ export async function getDocumentPreviewOrScheduleGeneration({
   arePreviewsEnabled: boolean;
   documentPreviewsRepository: Pick<
     DocumentPreviewsRepository,
-    'getDocumentPreviews' | 'markDocumentPreviewsAsPending'
+    'getDocumentPreviews' | 'claimDocumentPreviewsGeneration'
   >;
   taskServices: Pick<TaskServices, 'scheduleJob'>;
   now?: Date;
@@ -250,6 +319,7 @@ export async function getDocumentPreviewOrScheduleGeneration({
       organizationId: document.organizationId,
       documentPreviewsRepository,
       taskServices,
+      now,
     });
   }
 

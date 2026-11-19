@@ -13,7 +13,7 @@ import type { SubscriptionsServices } from '../subscriptions/subscriptions.servi
 import type { UsersRepository } from '../users/users.repository';
 import type { OrganizationsRepository } from './organizations.repository';
 import type { OrganizationRole } from './organizations.types';
-import { buildUrl } from '@corentinth/chisels';
+import { buildUrl, safely } from '@corentinth/chisels';
 import { createForbiddenError } from '../app/auth/auth.errors';
 import { getClientBaseUrl } from '../config/config.models';
 import { getOrganizationPlan } from '../plans/plans.usecases';
@@ -738,18 +738,29 @@ export async function purgeExpiredSoftDeletedOrganization({
   let failedCount = 0;
 
   for await (const document of documentsIterator) {
+    // Previews cleanup is independent of the original file deletion: a failing original must not leave the previews files behind
+    const [, previewsError] = await safely(
+      deleteDocumentPreviewFiles({
+        documentId: document.id,
+        documentPreviewsRepository,
+        documentsStorageService,
+        logger,
+      }),
+    );
+
+    if (previewsError) {
+      logger.error(
+        { organizationId, documentId: document.id, error: previewsError },
+        'Failed to delete document previews files from storage',
+      );
+    }
+
     try {
       await documentsStorageService.deleteFile({ storageKey: document.originalStorageKey });
       logger.debug(
         { organizationId, documentId: document.id, storageKey: document.originalStorageKey },
         'Deleted document file from storage',
       );
-      await deleteDocumentPreviewFiles({
-        documentId: document.id,
-        documentPreviewsRepository,
-        documentsStorageService,
-        logger,
-      });
       deletedCount++;
     } catch (error) {
       // Log but don't fail the entire purge if a single file deletion fails

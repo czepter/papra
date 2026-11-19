@@ -45,6 +45,30 @@ export function isDocumentPreviewSupported({
   return arePreviewsEnabled && isPreviewSupportedMimeType({ mimeType });
 }
 
+// A failed preview is retried until it has failed too many times
+export function isPreviewPermanentlyFailed({
+  status,
+  failedAttemptsCount,
+}: Pick<DocumentPreview, 'status' | 'failedAttemptsCount'>) {
+  return (
+    status === DOCUMENT_PREVIEW_STATUSES.FAILED &&
+    failedAttemptsCount >= MAX_PREVIEW_GENERATION_ATTEMPTS
+  );
+}
+
+export function areAllPreviewVariantsReady({
+  previews,
+}: {
+  previews: Pick<DocumentPreview, 'variant' | 'status'>[];
+}) {
+  return PREVIEW_VARIANTS.every((variant) =>
+    previews.some(
+      (preview) =>
+        preview.variant === variant && preview.status === DOCUMENT_PREVIEW_STATUSES.READY,
+    ),
+  );
+}
+
 export function getDocumentPreviewApiStatus({
   mimeType,
   previews,
@@ -58,24 +82,11 @@ export function getDocumentPreviewApiStatus({
     return DOCUMENT_PREVIEW_API_STATUSES.UNSUPPORTED;
   }
 
-  const hasPermanentlyFailed = previews.some(
-    ({ status, failedAttemptsCount }) =>
-      status === DOCUMENT_PREVIEW_STATUSES.FAILED &&
-      failedAttemptsCount >= MAX_PREVIEW_GENERATION_ATTEMPTS,
-  );
-
-  if (hasPermanentlyFailed) {
+  if (previews.some(isPreviewPermanentlyFailed)) {
     return DOCUMENT_PREVIEW_API_STATUSES.FAILED;
   }
 
-  const areAllVariantsReady = PREVIEW_VARIANTS.every((variant) =>
-    previews.some(
-      (preview) =>
-        preview.variant === variant && preview.status === DOCUMENT_PREVIEW_STATUSES.READY,
-    ),
-  );
-
-  return areAllVariantsReady
+  return areAllPreviewVariantsReady({ previews })
     ? DOCUMENT_PREVIEW_API_STATUSES.READY
     : DOCUMENT_PREVIEW_API_STATUSES.PENDING;
 }

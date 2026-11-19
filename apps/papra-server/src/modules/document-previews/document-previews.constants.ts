@@ -8,7 +8,14 @@ export const DOCUMENT_PREVIEW_STATUSES = {
   FAILED: 'failed',
 } as const;
 
-export const DOCUMENT_PREVIEW_STATUS_LIST = ['pending', 'ready', 'failed'] as const;
+type DocumentPreviewStatus =
+  (typeof DOCUMENT_PREVIEW_STATUSES)[keyof typeof DOCUMENT_PREVIEW_STATUSES];
+
+// Drizzle enum columns require a non-empty tuple
+export const DOCUMENT_PREVIEW_STATUS_LIST = Object.values(DOCUMENT_PREVIEW_STATUSES) as [
+  DocumentPreviewStatus,
+  ...DocumentPreviewStatus[],
+];
 
 // Status exposed in the document API payload, it is derived from the stored statuses, the document mime type and the config
 export const DOCUMENT_PREVIEW_API_STATUSES = {

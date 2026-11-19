@@ -1857,6 +1857,59 @@ describe('organizations usecases', () => {
         ]);
       });
 
+      test('previews files are deleted even when the original file deletion fails', async () => {
+        const { logger } = createTestLogger();
+        const { db } = await createInMemoryDatabase({
+          organizations: [
+            {
+              id: 'organization-1',
+              name: 'Expired Org',
+              deletedAt: new Date('2025-10-05'),
+              scheduledPurgeAt: new Date('2025-11-04'),
+            },
+          ],
+          documents: [
+            {
+              id: 'doc-1',
+              organizationId: 'organization-1',
+              originalStorageKey: 'org-1/doc-1.pdf',
+              originalName: 'doc-1.pdf',
+              name: 'doc-1.pdf',
+              mimeType: 'application/pdf',
+              originalSha256Hash: 'hash1',
+            },
+          ],
+          documentPreviews: [
+            {
+              documentId: 'doc-1',
+              variant: 'thumb',
+              status: 'ready',
+              storageKey: 'org-1/previews/doc-1/thumb.webp',
+            },
+          ],
+        });
+
+        const deletedFiles: string[] = [];
+
+        await purgeExpiredSoftDeletedOrganization({
+          organizationId: 'organization-1',
+          documentsRepository: createDocumentsRepository({ db }),
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
+          organizationsRepository: createOrganizationsRepository({ db }),
+          documentsStorageService: {
+            deleteFile: async ({ storageKey }: { storageKey: string }) => {
+              if (storageKey === 'org-1/doc-1.pdf') {
+                throw new Error('Storage unavailable');
+              }
+              deletedFiles.push(storageKey);
+            },
+          } as StorageService,
+          logger,
+        });
+
+        expect(deletedFiles).to.eql(['org-1/previews/doc-1/thumb.webp']);
+      });
+
       test('successfully purges organization and deletes all documents from storage', async () => {
         const { logger, getLogs } = createTestLogger();
         const { db } = await createInMemoryDatabase({
