@@ -24,7 +24,8 @@ function setValidParams(path: string) {
     .replaceAll(':shareLinkToken', 't'.repeat(SHARE_LINK_TOKEN_LENGTH))
     .replaceAll(':documentViewId', 'dv_444444444444444444444444')
     .replaceAll(':planEntitlementId', 'pla_ent_555555555555555555555555')
-    .replaceAll(':type', 'selfhst-premium');
+    .replaceAll(':type', 'selfhst-premium')
+    .replaceAll(':variant', 'thumb');
 
   // throw if there are any remaining params
   if (newPath.match(/:\w+/g)) {
