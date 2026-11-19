@@ -5,6 +5,9 @@ export const DOCUMENT_ID_REGEX = createPrefixedIdRegex({ prefix: DOCUMENT_ID_PRE
 
 export const ORIGINAL_DOCUMENTS_STORAGE_KEY = 'originals';
 
+// Documents lists don't include the full extracted content, only its first characters (used for excerpts in the grid view)
+export const DOCUMENT_CONTENT_EXCERPT_LENGTH = 300;
+
 // Hardcoding languages list for now, as the config schema is used in the doc app, the import of @papra/lecture fucks things up at build time due to tesseract
 // but would love to use the actual list from @papra/lecture
 //

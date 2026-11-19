@@ -16,7 +16,10 @@ export type Document = {
   isDeleted?: boolean;
   deletedAt?: Date;
   deletedBy?: string;
-  content: string;
+  // Only returned when a single document is fetched, lists carry `contentExcerpt` instead
+  content?: string;
+  // First characters of the extracted content, returned by the documents lists
+  contentExcerpt?: string;
   notes?: string;
   tags: Tag[];
   customProperties?: DocumentCustomProperty[];

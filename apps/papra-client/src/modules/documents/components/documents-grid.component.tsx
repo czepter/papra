@@ -67,7 +67,7 @@ const DocumentCardPreview: Component<{ document: Document }> = (props) => {
             <DocumentTypeTile document={props.document} size="lg" />
           </div>
 
-          <Show when={getDocumentTextExcerpt({ content: props.document.content })}>
+          <Show when={getDocumentTextExcerpt({ content: props.document.contentExcerpt })}>
             {(getExcerpt) => (
               <p class="line-clamp-4 break-words text-center text-[11px] leading-snug text-muted-foreground">
                 {getExcerpt()}

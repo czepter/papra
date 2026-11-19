@@ -63,6 +63,55 @@ describe('database-fts5 repository', () => {
       expect(searchResults.map((doc) => doc.id).toSorted()).to.eql(['doc_1', 'doc_2']);
     });
 
+    test('search results do not include the full content but an excerpt of its first characters', async () => {
+      const content = `${'a'.repeat(299)}éb${'c'.repeat(100)}`;
+      const documents = [
+        {
+          id: 'doc_1',
+          organizationId: 'org_1',
+          originalStorageKey: 'org_1/doc_1.pdf',
+          originalName: 'doc_1.pdf',
+          name: 'doc_1.pdf',
+          mimeType: 'application/pdf',
+          content,
+          originalSha256Hash: 'hash1',
+          isDeleted: false,
+        },
+        {
+          id: 'doc_2',
+          organizationId: 'org_1',
+          originalStorageKey: 'org_1/doc_2.pdf',
+          originalName: 'doc_2.pdf',
+          name: 'doc_2.pdf',
+          mimeType: 'application/pdf',
+          content: 'short',
+          originalSha256Hash: 'hash2',
+          isDeleted: false,
+        },
+      ];
+
+      const { db } = await createInMemoryDatabase({
+        organizations: [{ id: 'org_1', name: 'Organization 1' }],
+        documents,
+      });
+      const documentsSearchRepository = createDocumentSearchRepository({ db });
+      await documentsSearchRepository.indexDocuments({ documents });
+
+      const { documents: searchResults } =
+        await documentsSearchRepository.searchOrganizationDocuments({
+          organizationId: 'org_1',
+          searchQuery: '',
+          pageIndex: 0,
+          pageSize: 10,
+        });
+
+      const byId = Object.fromEntries(searchResults.map((document) => [document.id, document]));
+
+      expect(byId.doc_1).not.toHaveProperty('content');
+      expect(byId.doc_1?.contentExcerpt).to.eql(`${'a'.repeat(299)}é`);
+      expect(byId.doc_2?.contentExcerpt).to.eql('short');
+    });
+
     test('search query can have special characters', async () => {
       const documents = [
         {
