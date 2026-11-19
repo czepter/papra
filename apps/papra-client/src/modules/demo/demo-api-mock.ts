@@ -366,7 +366,11 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
         .slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
       return {
-        documents: paginatedDocuments,
+        // Like the server, lists carry an excerpt of the content instead of the full text
+        documents: paginatedDocuments.map(({ content, ...document }) => ({
+          ...document,
+          contentExcerpt: (content ?? '').slice(0, 300),
+        })),
         documentsCount: filteredDocuments.length,
       };
     },

@@ -127,7 +127,7 @@ const DocumentPreviewHoverCardContent: Component<{ document: Document }> = (prop
         </Match>
         <Match when={preview.getState() === 'unavailable'}>
           <div class="rounded border bg-muted/50 p-2 flex flex-col gap-2">
-            <Show when={getDocumentTextExcerpt({ content: props.document.content })}>
+            <Show when={getDocumentTextExcerpt({ content: props.document.contentExcerpt })}>
               {(getExcerpt) => (
                 <p class="text-xs text-foreground/80 break-words whitespace-pre-line">
                   {getExcerpt()}

@@ -2,6 +2,7 @@ import type { Component } from 'solid-js';
 import type { Document } from '../documents.types';
 import { formatBytes } from '@corentinth/chisels';
 import { useNavigate } from '@solidjs/router';
+import { useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, For, Match, on, Show, Switch } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -23,6 +24,7 @@ import {
   splitTextByTerms,
 } from '../document-quick-look.models';
 import { getDocumentNameExtension } from '../document.models';
+import { fetchDocument } from '../documents.services';
 import { getDocumentElement, getShortcutContext } from '../documents-keyboard.composables';
 import {
   invalidateOrganizationDocumentsQuery,
@@ -158,17 +160,22 @@ const QuickLookViewer: Component<{ document: Document }> = (props) => {
   );
 };
 
-const QuickLookSidePanel: Component<{ document: Document; terms: string[] }> = (props) => {
+const QuickLookSidePanel: Component<{
+  document: Document;
+  // Full extracted content, lists only carry an excerpt so it is loaded apart
+  content: string | undefined;
+  isContentLoading: boolean;
+  terms: string[];
+}> = (props) => {
   const { t } = useI18n();
   const [getIsExpanded, setIsExpanded] = createSignal(false);
 
   const getLines = () =>
     getTextLines({
-      text: props.document.content ?? '',
+      text: props.content ?? '',
       maxLines: getIsExpanded() ? undefined : CONTENT_PREVIEW_LINES,
     });
-  const getSnippets = () =>
-    buildMatchSnippets({ text: props.document.content ?? '', terms: props.terms });
+  const getSnippets = () => buildMatchSnippets({ text: props.content ?? '', terms: props.terms });
 
   return (
     <div class="flex flex-col gap-6 p-5">
@@ -228,32 +235,43 @@ const QuickLookSidePanel: Component<{ document: Document; terms: string[] }> = (
       <section>
         <SectionHeading>{t('documents.quick-look.sections.content')}</SectionHeading>
         <Show
-          when={getLines().lines.length > 0}
+          when={!props.isContentLoading}
           fallback={
-            <p class="text-sm text-muted-foreground">{t('documents.quick-look.no-content')}</p>
+            <div class="flex flex-col gap-2" role="status" aria-busy="true">
+              <Skeleton class="h-3 w-full" />
+              <Skeleton class="h-3 w-11/12" />
+              <Skeleton class="h-3 w-4/5" />
+            </div>
           }
         >
-          <div class="flex flex-col gap-1 break-words text-xs leading-relaxed text-foreground/80">
-            <For each={getLines().lines}>
-              {(line) => (
-                <p>
-                  <HighlightedText text={line} terms={props.terms} />
-                </p>
-              )}
-            </For>
-          </div>
+          <Show
+            when={getLines().lines.length > 0}
+            fallback={
+              <p class="text-sm text-muted-foreground">{t('documents.quick-look.no-content')}</p>
+            }
+          >
+            <div class="flex flex-col gap-1 break-words text-xs leading-relaxed text-foreground/80">
+              <For each={getLines().lines}>
+                {(line) => (
+                  <p>
+                    <HighlightedText text={line} terms={props.terms} />
+                  </p>
+                )}
+              </For>
+            </div>
 
-          <Show when={getLines().hasMore || getIsExpanded()}>
-            <Button
-              variant="link"
-              size="sm"
-              class="mt-1 h-auto p-0 text-xs"
-              onClick={() => setIsExpanded((value) => !value)}
-            >
-              {getIsExpanded()
-                ? t('documents.quick-look.show-less')
-                : t('documents.quick-look.show-full-text')}
-            </Button>
+            <Show when={getLines().hasMore || getIsExpanded()}>
+              <Button
+                variant="link"
+                size="sm"
+                class="mt-1 h-auto p-0 text-xs"
+                onClick={() => setIsExpanded((value) => !value)}
+              >
+                {getIsExpanded()
+                  ? t('documents.quick-look.show-less')
+                  : t('documents.quick-look.show-full-text')}
+              </Button>
+            </Show>
           </Show>
         </Show>
       </section>
@@ -287,8 +305,23 @@ export const DocumentQuickLook: Component<{
   );
   const getIndex = () => props.documents.findIndex((document) => document.id === props.documentId);
   const getTerms = createMemo(() => extractSearchTerms({ query: props.searchQuery }));
-  const getMatchCount = () =>
-    countTermMatches({ text: getDocument()?.content ?? '', terms: getTerms() });
+
+  // Lists only carry an excerpt of the content, the full text is loaded with the document (same query as the document page, so the cache is shared)
+  const documentQuery = useQuery(() => {
+    const document = getDocument();
+
+    return {
+      queryKey: ['organizations', document?.organizationId, 'documents', document?.id],
+      queryFn: async () =>
+        fetchDocument({
+          documentId: document?.id as string,
+          organizationId: document?.organizationId as string,
+        }),
+      enabled: props.documentId !== undefined && document !== undefined,
+    };
+  });
+  const getContent = () => documentQuery.data?.document.content;
+  const getMatchCount = () => countTermMatches({ text: getContent() ?? '', terms: getTerms() });
 
   // The document disappeared from the page (page change, deletion, new search)
   createEffect(() => {
@@ -536,7 +569,12 @@ export const DocumentQuickLook: Component<{
 
                 <aside class="shrink-0 border-t md:w-[340px] md:overflow-y-auto md:border-l md:border-t-0">
                   <Show when={getCurrentDocument().id} keyed>
-                    <QuickLookSidePanel document={getCurrentDocument()} terms={getTerms()} />
+                    <QuickLookSidePanel
+                      document={getCurrentDocument()}
+                      content={getContent()}
+                      isContentLoading={documentQuery.isPending}
+                      terms={getTerms()}
+                    />
                   </Show>
                 </aside>
               </div>

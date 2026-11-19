@@ -10,7 +10,8 @@ export type DocumentSearchableData = {
 };
 
 export type DocumentSearchResult = {
-  documents: Omit<Document, 'content'>[];
+  // Lists don't include the full content, only an excerpt of its first characters
+  documents: (Omit<Document, 'content'> & { contentExcerpt: string })[];
   documentsCount: number;
 };
 
