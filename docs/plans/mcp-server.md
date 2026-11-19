@@ -187,7 +187,7 @@ The permission pairs for the custom-property value routes and the tag attach rou
 
 **Documents.**
 
-- `search_documents` maps to the `searchQuery`, `sortField`, `sortOrder`, `pageIndex` and `pageSize` query keys of the list route; `searchDocumentsQuerySchema` is in `apps/papra-server/src/modules/documents/documents.schemas.ts`. Page size is capped at 100 there; the tool keeps the cap and returns a smaller default so one call does not flood the model's context.
+- `search_documents` maps to the `searchQuery`, `sortField`, `sortOrder`, `pageIndex` and `pageSize` query keys of the list route; `searchDocumentsQuerySchema` is in `apps/papra-server/src/modules/documents/documents.schemas.ts`. Page size is capped at 100 in the list route (`apps/papra-server/src/modules/documents/documents.routes.ts`); the tool keeps the cap and returns a smaller default so one call does not flood the model's context.
 - `read_document_content` returns the `content` column of `apps/papra-server/src/modules/documents/documents.table.ts` and takes `offset`/`limit` arguments so long documents can be read in pieces.
 - `upload_document`: MCP carries JSON, so file bytes travel as base64, about a third larger than the file. The REST limit is `DOCUMENT_STORAGE_MAX_UPLOAD_SIZE` (`apps/papra-server/src/modules/documents/document-storage.config.ts`, default 25 MB) and the plan-specific limit that the route resolves from the organization plan. The tool applies the same limits to the decoded size and adds a lower hard cap for the encoded payload (suggested starting value 10 MB, open question 8). Larger files are rejected with a clear error.
 - `download_document_file` is deferred. Returning a whole file as an embedded resource has the same size problem in the other direction, and extracted text from `read_document_content` covers most uses.
@@ -271,7 +271,7 @@ Each entry is one PR. Branch names follow `<type>/<kebab-topic>`. Dependencies a
 | 5   | `feat/mcp-consent-ui`                      | Consent page, connected-apps list with revoke, i18n.                                                                              | medium | ui           | 4                    |
 | 6   | `docs/mcp-server-guide`                    | Guide, config reference, changeset.                                                                                               | low    | none         | 3, 5                 |
 
-This keeps the intake's six slices (skeleton with API keys, read tools, write tools, OAuth server, consent UI, docs guide) and adds the contract migrations from section 4 as prerequisites.
+This keeps the intake's six slices (skeleton with API keys, read tools, write tools, OAuth server, consent UI, docs guide) and adds the contract migrations from section 4 as preferred, non-blocking predecessors of the read and write tools (slices 2 and 3 can derive from the existing `*.schemas.ts` files if 0a and 0b are not done yet).
 
 Ordering of OAuth against the write tools: if a target client accepts only the authorization flow for remote servers (open question 1), slice 4 and 5 move ahead of slice 3, because write tools behind a static key that no target client can use have no users, and a write-capable token should be audience-bound and revocable from the start. If the target clients accept a static bearer header, keep the order above; slices 1 to 3 then deliver a usable server, and OAuth is an upgrade.
 
