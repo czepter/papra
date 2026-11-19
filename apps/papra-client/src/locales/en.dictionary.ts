@@ -466,6 +466,23 @@ export const translations = {
   'documents.list.select.all': 'Select all rows on this page',
   'documents.list.select.row': 'Select row',
 
+  'documents.preview.alt': 'Preview of {{ name }}',
+  'documents.preview.no-preview': 'No preview for this file type',
+
+  'documents.grid.quick-look': 'Quick look',
+  'documents.grid.sort.label': 'Sort by',
+  'documents.grid.sort.direction': 'Toggle sort direction',
+
+  'documents.view.toggle-label': 'Documents view',
+  'documents.view.list': 'List',
+  'documents.view.grid': 'Grid',
+  'documents.view.saved-for-tag': 'Saved for this tag',
+  'documents.view.toast.title': '{{ view }} view saved for “{{ tag }}”',
+  'documents.view.toast.description':
+    'Other views keep using {{ defaultView }}. Only you see this setting.',
+  'documents.view.toast.undo': 'Undo',
+  'documents.view.toast.everywhere': 'Use {{ view }} everywhere',
+
   'custom-properties.types.text': 'Text',
   'custom-properties.types.number': 'Number',
   'custom-properties.types.date': 'Date',

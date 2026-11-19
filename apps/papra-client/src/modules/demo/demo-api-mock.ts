@@ -26,6 +26,9 @@ import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.s
 import { demoUser } from './seed/users.fixtures';
 import { stringify } from '@papra/std';
 
+// Demo documents have no generated previews
+const DEMO_DOCUMENT_PREVIEW_STATUS = 'unsupported' as const;
+
 function assert(
   condition: unknown,
   { message = 'Error', status }: { message?: string; status?: number } = {},
@@ -325,6 +328,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
           ...document,
           tags,
           customProperties,
+          previewStatus: DEMO_DOCUMENT_PREVIEW_STATUS,
         };
       });
 
@@ -382,7 +386,10 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       );
 
       return {
-        documents: deletedDocuments,
+        documents: deletedDocuments.map((document) => ({
+          ...document,
+          previewStatus: DEMO_DOCUMENT_PREVIEW_STATUS,
+        })),
         documentsCount: deletedDocuments.length,
       };
     },
@@ -418,8 +425,18 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
           ...document,
           tags,
           customProperties,
+          previewStatus: DEMO_DOCUMENT_PREVIEW_STATUS,
         },
       };
+    },
+  }),
+
+  // There is no preview generation in demo mode, documents get the file type tile
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/:documentId/previews/:variant',
+    method: 'GET',
+    handler: async () => {
+      assert(false, { status: 404, message: 'document.preview_unsupported' });
     },
   }),
 
