@@ -155,13 +155,36 @@ const DocumentPreviewHoverCardContent: Component<{ document: Document }> = (prop
 };
 
 // Portrait thumbnail of a document, 34x48. With `hoverCard`, hovering it (mouse only) opens a larger preview.
-export const DocumentThumbnail: Component<{ document: Document; hoverCard?: boolean }> = (
-  props,
-) => {
+// With `onClick`, the thumbnail is a button (used to open the quick look overlay).
+export const DocumentThumbnail: Component<{
+  document: Document;
+  hoverCard?: boolean;
+  onClick?: (document: Document) => void;
+}> = (props) => {
+  const { t } = useI18n();
+  const frameClass =
+    'relative block h-48px w-34px shrink-0 overflow-hidden rounded-[4px] border bg-white shadow-sm';
+
   const frame = (
-    <div class="relative h-48px w-34px shrink-0 overflow-hidden rounded-[4px] border bg-white shadow-sm">
-      <DocumentPreviewImage document={props.document} variant="thumb" tileSize="sm" />
-    </div>
+    <Show
+      when={props.onClick}
+      fallback={
+        <div class={frameClass}>
+          <DocumentPreviewImage document={props.document} variant="thumb" tileSize="sm" />
+        </div>
+      }
+    >
+      {(getOnClick) => (
+        <button
+          type="button"
+          class={cn(frameClass, 'cursor-zoom-in p-0 focus-visible:(outline-none ring-2 ring-ring)')}
+          aria-label={t('documents.grid.quick-look')}
+          onClick={() => getOnClick()(props.document)}
+        >
+          <DocumentPreviewImage document={props.document} variant="thumb" tileSize="sm" />
+        </button>
+      )}
+    </Show>
   );
 
   return (

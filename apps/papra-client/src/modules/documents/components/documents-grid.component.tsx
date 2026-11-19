@@ -13,6 +13,7 @@ import { Skeleton } from '@/modules/ui/components/skeleton';
 import { createDocumentPreview } from '../document-previews.composables';
 import { getDocumentTextExcerpt, isImageDocument } from '../document-previews.models';
 import { getDocumentNameExtension, getDocumentNameWithoutExtension } from '../document.models';
+import { DOCUMENT_ID_ATTRIBUTE } from '../documents-keyboard.composables';
 import { DocumentTypeTile } from './document-thumbnail.component';
 
 // Controls revealed on hover (always visible on devices without hover, and when keyboard focused)
@@ -83,6 +84,7 @@ const DocumentCard: Component<{
   document: Document;
   isSelected: boolean;
   isSelectionEnabled: boolean;
+  isFocused: boolean;
   onToggleSelected: (value: boolean) => void;
   onQuickLook?: (document: Document) => void;
 }> = (props) => {
@@ -92,9 +94,12 @@ const DocumentCard: Component<{
 
   return (
     <div
+      {...{ [DOCUMENT_ID_ATTRIBUTE]: props.document.id }}
+      tabIndex={-1}
       class={cn(
-        'group relative flex min-w-0 flex-col overflow-hidden rounded-[10px] border bg-card transition duration-150 hover:(-translate-y-px shadow-md)',
+        'group relative flex min-w-0 flex-col overflow-hidden rounded-[10px] border bg-card outline-none transition duration-150 hover:(-translate-y-px shadow-md)',
         props.isSelected && 'ring-2 ring-primary border-primary',
+        props.isFocused && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
       )}
     >
       <div class="relative h-[196px] shrink-0 overflow-hidden bg-muted">
@@ -114,7 +119,6 @@ const DocumentCard: Component<{
           </Checkbox>
         </Show>
 
-        {/* Hook for the quick look overlay */}
         <Show when={props.onQuickLook}>
           {(getOnQuickLook) => (
             <button
@@ -176,6 +180,8 @@ const DocumentCard: Component<{
 export const DocumentsGrid: Component<{
   rows: Row<Document>[];
   enableSelection?: boolean;
+  // Document highlighted by the keyboard navigation
+  focusedDocumentId?: string;
   onQuickLook?: (document: Document) => void;
 }> = (props) => {
   return (
@@ -186,6 +192,7 @@ export const DocumentsGrid: Component<{
             document={row.original}
             isSelected={row.getIsSelected()}
             isSelectionEnabled={props.enableSelection ?? false}
+            isFocused={props.focusedDocumentId === row.original.id}
             onToggleSelected={(value) => row.toggleSelected(value)}
             onQuickLook={props.onQuickLook}
           />

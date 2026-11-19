@@ -40,6 +40,7 @@ import {
 } from '@/modules/ui/components/table';
 import { getDocumentNameExtension, getDocumentNameWithoutExtension } from '../document.models';
 import type { DocumentsView } from '../documents-view-preference.models';
+import { DOCUMENT_ID_ATTRIBUTE } from '../documents-keyboard.composables';
 import { DocumentManagementDropdown } from './document-management-dropdown.component';
 import { DocumentThumbnail } from './document-thumbnail.component';
 import { DocumentsGrid } from './documents-grid.component';
@@ -264,7 +265,9 @@ export const DocumentsPaginatedList: Component<{
   setSorting?: Setter<SortingState>;
   // Defaults to the table view
   view?: DocumentsView;
-  // Hook for the quick look overlay, the grid cards show an eye button when provided
+  // Document highlighted by the keyboard navigation
+  focusedDocumentId?: string;
+  // Opens the quick look overlay: from the thumbnails of the list and the eye button of the grid cards
   onQuickLook?: (document: Document) => void;
 }> = (props) => {
   const { t } = useI18n();
@@ -282,7 +285,7 @@ export const DocumentsPaginatedList: Component<{
         enableSorting: true,
         cell: (data) => (
           <div class="overflow-hidden flex gap-4 items-center max-w-500px">
-            <DocumentThumbnail document={data.row.original} hoverCard />
+            <DocumentThumbnail document={data.row.original} hoverCard onClick={props.onQuickLook} />
 
             <div class="flex-1 flex flex-col gap-1 truncate">
               <A
@@ -393,7 +396,13 @@ export const DocumentsPaginatedList: Component<{
                   <Show when={table.getRowModel().rows?.length}>
                     <For each={table.getRowModel().rows}>
                       {(row) => (
-                        <TableRow data-state={row.getIsSelected() && 'selected'}>
+                        <TableRow
+                          {...{ [DOCUMENT_ID_ATTRIBUTE]: row.original.id }}
+                          tabIndex={-1}
+                          data-state={row.getIsSelected() && 'selected'}
+                          data-focused={props.focusedDocumentId === row.original.id || undefined}
+                          class="outline-none data-[focused]:(bg-muted/50 shadow-[inset_2px_0_0_0_hsl(var(--primary))])"
+                        >
                           <For each={row.getVisibleCells()}>
                             {(cell) => (
                               <TableCell>
@@ -414,6 +423,7 @@ export const DocumentsPaginatedList: Component<{
             <DocumentsGrid
               rows={table.getRowModel().rows}
               enableSelection={props.enableBatchSelection}
+              focusedDocumentId={props.focusedDocumentId}
               onQuickLook={props.onQuickLook}
             />
           </Show>
