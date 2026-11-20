@@ -28,7 +28,7 @@ import { addOrganizationSettingsTableMigration } from './list/0025-add-organizat
 import { addIndexesMigration } from './list/0026-add-indexes.migration';
 import { aiCreditsMigration } from './list/0027-ai-credits.migration';
 import { pendingOrganizationInvitationsUniqueMigration } from './list/0028-pending-organization-invitations-unique.migration';
-import { userPinnedTagsMigration } from './list/0029-user-pinned-tags.migration';
+import { userPinnedTagsMigration } from './list/0033-user-pinned-tags.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
