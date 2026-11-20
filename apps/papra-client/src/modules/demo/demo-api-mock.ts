@@ -495,6 +495,34 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   }),
 
   ...defineHandler({
+    path: '/api/organizations/:organizationId/tags/pinned/order',
+    method: 'PUT',
+    handler: async ({ params: { organizationId }, body }) => {
+      const organization = await organizationStorage.getItem(organizationId);
+
+      assert(organization, { status: 403 });
+
+      const tagIds = (get(body, ['tagIds']) as string[] | undefined) ?? [];
+      const pins = await findMany(pinnedTagStorage, (pin) => pin.organizationId === organizationId);
+      const pinnedIds = new Set(pins.map((pin) => pin.tagId));
+      const requested = [...new Set(tagIds)].filter((id) => pinnedIds.has(id));
+      const orderedIds = [
+        ...requested,
+        ...pins
+          .toSorted((a, b) => a.position - b.position)
+          .map((pin) => pin.tagId)
+          .filter((id) => !requested.includes(id)),
+      ];
+
+      await Promise.all(
+        orderedIds.map(async (tagId, position) =>
+          pinnedTagStorage.setItem(tagId, { tagId, organizationId, position }),
+        ),
+      );
+    },
+  }),
+
+  ...defineHandler({
     path: '/api/organizations/:organizationId/tags/:tagId/pin',
     method: 'POST',
     handler: async ({ params: { organizationId, tagId } }) => {

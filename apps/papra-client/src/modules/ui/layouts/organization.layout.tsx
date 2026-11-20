@@ -3,11 +3,14 @@ import type { Component, ParentComponent } from 'solid-js';
 import type { Organization } from '@/modules/organizations/organizations.types';
 
 import { A, useNavigate, useParams } from '@solidjs/router';
-import { useQuery } from '@tanstack/solid-query';
+import { useMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, on, Show } from 'solid-js';
 import { useConfig } from '@/modules/config/config.provider';
 import { makeDocumentSearchPermalink } from '@/modules/documents/document.models';
-import { fetchPinnedTags } from '@/modules/tags/tags.services';
+import { fetchPinnedTags, reorderPinnedTags } from '@/modules/tags/tags.services';
+import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
+import { createToast } from '@/modules/ui/components/sonner';
+import { moveIdNextToTarget } from '@/modules/ui/components/sidenav.models';
 import { fetchDocumentViews } from '@/modules/document-views/document-views.services';
 import {
   DocumentUploadProvider,
@@ -99,6 +102,39 @@ const OrganizationLayoutSideNav: Component = () => {
     queryFn: async () => fetchPinnedTags({ organizationId: params.organizationId }),
   }));
 
+  const { getErrorMessage } = useI18nApiErrors({ t });
+  const pinnedTagsQueryKey = () => ['organizations', params.organizationId, 'tags', 'pinned'];
+
+  const reorderPinnedTagsMutation = useMutation(() => ({
+    mutationFn: async ({ tagIds }: { tagIds: string[] }) =>
+      reorderPinnedTags({ organizationId: params.organizationId, tagIds }),
+    onMutate: async ({ tagIds }) => {
+      const queryKey = pinnedTagsQueryKey();
+      await queryClient.cancelQueries({ queryKey });
+      const previous =
+        queryClient.getQueryData<Awaited<ReturnType<typeof fetchPinnedTags>>>(queryKey);
+
+      queryClient.setQueryData<Awaited<ReturnType<typeof fetchPinnedTags>>>(queryKey, (data) =>
+        data
+          ? {
+              pinnedTags: tagIds.flatMap((id) => data.pinnedTags.filter((tag) => tag.id === id)),
+            }
+          : data,
+      );
+
+      return { previous, queryKey };
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
+      createToast({ message: getErrorMessage({ error }), type: 'error' });
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: pinnedTagsQueryKey() });
+    },
+  }));
+
   const getPinnedTagsSections = () => {
     const pinnedTags = pinnedTagsQuery.data?.pinnedTags ?? [];
 
@@ -109,8 +145,27 @@ const OrganizationLayoutSideNav: Component = () => {
     return [
       {
         label: t('layout.menu.pinned-tags'),
+        onReorder: ({
+          id,
+          targetId,
+          placement,
+        }: {
+          id: string;
+          targetId: string;
+          placement: 'before' | 'after';
+        }) => {
+          const tagIds = moveIdNextToTarget({
+            ids: pinnedTags.map((tag) => tag.id),
+            id,
+            targetId,
+            placement,
+          });
+
+          reorderPinnedTagsMutation.mutate({ tagIds });
+        },
         items: [
           ...pinnedTags.map((tag) => ({
+            id: tag.id,
             label: tag.name,
             icon: 'i-tabler-tag',
             leading: (
