@@ -572,6 +572,8 @@ export const translations = {
 
   'documents.custom-properties.section-title': 'Properties',
   'documents.custom-properties.no-value': 'Not set',
+  'documents.custom-properties.boolean-true': 'Yes',
+  'documents.custom-properties.boolean-false': 'No',
   'documents.custom-properties.text-placeholder': 'Enter a value...',
   'documents.custom-properties.save': 'Save',
   'documents.custom-properties.clear': 'Clear',
