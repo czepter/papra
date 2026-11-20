@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { INBOX_MODES_LIST } from '../../document-inbox/document-inbox.constants';
 import { createPrimaryKeyField, createTimestampColumns } from '../../shared/db/columns.helpers';
 import { organizationsTable } from '../organizations.table';
 import { ORGANIZATION_SETTINGS_ID_PREFIX } from './organization-settings.constants';
@@ -20,4 +21,7 @@ export const organizationSettingsTable = sqliteTable('organization_settings', {
   }),
   aiAutoTaggingMaxTags: integer('ai_auto_tagging_max_tags'),
   aiAutoTaggingModelId: text('ai_auto_tagging_model_id'),
+
+  // Inbox mode, null means the default one
+  inboxMode: text('inbox_mode', { enum: INBOX_MODES_LIST }),
 });

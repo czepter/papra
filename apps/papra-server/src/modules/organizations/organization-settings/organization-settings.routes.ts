@@ -2,6 +2,7 @@ import { requireAuthentication } from '../../app/auth/auth.middleware';
 import type { RouteDefinitionContext } from '../../app/server.types';
 import { validateJsonBody, validateParams } from '../../shared/validation/validation';
 import * as v from 'valibot';
+import { INBOX_MODES_LIST } from '../../document-inbox/document-inbox.constants';
 import { organizationIdSchema } from '../organization.schemas';
 import { getUser } from '../../app/auth/auth.models';
 import { createOrganizationsRepository } from '../organizations.repository';
@@ -73,6 +74,11 @@ export function setupUpdateOrganizationSettingsRoute({ app, db }: RouteDefinitio
             ),
           }),
         ),
+        inbox: v.optional(
+          v.strictObject({
+            mode: v.optional(v.picklist(INBOX_MODES_LIST)),
+          }),
+        ),
       }),
     ),
     async (context) => {
@@ -92,6 +98,7 @@ export function setupUpdateOrganizationSettingsRoute({ app, db }: RouteDefinitio
             organizationSettingsPartials.ai?.autoTagging?.canCreateNewTags,
           aiAutoTaggingEnabled: organizationSettingsPartials.ai?.autoTagging?.isEnabled,
           aiAutoTaggingMaxTags: organizationSettingsPartials.ai?.autoTagging?.maxTags,
+          inboxMode: organizationSettingsPartials.inbox?.mode,
         },
       });
 

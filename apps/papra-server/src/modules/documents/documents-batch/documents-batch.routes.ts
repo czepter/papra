@@ -3,6 +3,7 @@ import * as v from 'valibot';
 import { API_KEY_PERMISSIONS } from '../../api-keys/api-keys.constants';
 import { requireAuthentication } from '../../app/auth/auth.middleware';
 import { getUser } from '../../app/auth/auth.models';
+import { createDocumentInboxRepository } from '../../document-inbox/document-inbox.repository';
 import { organizationIdSchema } from '../../organizations/organization.schemas';
 import { createOrganizationsRepository } from '../../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../../organizations/organizations.usecases';
@@ -84,7 +85,7 @@ function setupBatchTagDocumentsRoute({
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      await tagDocumentsBatch({
+      const { documentIds } = await tagDocumentsBatch({
         filter,
         addTagIds,
         removeTagIds,
@@ -95,6 +96,15 @@ function setupBatchTagDocumentsRoute({
         documentSearchServices,
         eventServices,
       });
+
+      // Manually adding tags to documents counts as reviewing them
+      if (addTagIds.length > 0) {
+        await createDocumentInboxRepository({ db }).markDocumentsAsReviewed({
+          organizationId,
+          documentIds,
+          userId,
+        });
+      }
 
       return context.body(null, 204);
     },

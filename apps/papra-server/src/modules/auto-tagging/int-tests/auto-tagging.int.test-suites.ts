@@ -92,6 +92,7 @@ export async function runAutoTaggingTestSuite({
         ai: {
           autoTagging: { isEnabled: true, canCreateNewTags: false, maxTags: 3, modelId },
         },
+        inbox: { mode: 'shared' },
       },
     }),
     logger,

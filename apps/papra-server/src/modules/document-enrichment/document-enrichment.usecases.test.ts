@@ -30,6 +30,7 @@ function createTestResolveOrganizationSettings(
           ...autoTagging,
         },
       },
+      inbox: { mode: 'shared' },
     },
   });
 }
