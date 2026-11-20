@@ -11,6 +11,21 @@ describe('redirect', () => {
       ).to.eql('/organizations/org_abc?search=report.pdf+draft&sort=created_at');
     });
 
+    test('an oauth consent query survives the sign-in round trip byte for byte, including %2F, + and =', () => {
+      const consentQuery =
+        '?response_type=code&client_id=abc&redirect_uri=http%3A%2F%2F127.0.0.1%3A33418%2Fcallback&scope=organizations%3Aread+documents%3Aread+offline_access&state=a%2Fb%2Bc%3D&code_challenge=CzzsLgTxXKRaj3JdzxIOS-g8eCxlle5cKo62mqYwSJU&code_challenge_method=S256&exp=1795157166&ba_iat=1795156566936&sig=lmsfnu2rIaiQUwg2PtXgC9puq6gkr2GWnQtHXf8H3h4%3D';
+      const consentPath = `/oauth/consent${consentQuery}`;
+
+      expect(parseRedirectPath(consentPath)).to.eql(consentPath);
+
+      // The login url carries the consent url as a parameter, the login page reads it back decoded once
+      const loginPath = buildPathWithRedirect({ path: '/login', redirectPath: consentPath });
+      const redirect = new URL(loginPath, 'https://papra.test').searchParams.get('redirect');
+
+      expect(redirect).to.eql(consentPath);
+      expect(parseRedirectPath(redirect ?? undefined)).to.eql(consentPath);
+    });
+
     test('paths that do not start with a single slash are invalid', () => {
       expect(parseRedirectPath('dashboard')).to.eql(undefined);
       expect(parseRedirectPath('https://evil.com')).to.eql(undefined);

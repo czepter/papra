@@ -40,6 +40,10 @@ export const publicConfigSchema = v.object({
   autoTagging: v.object({
     isEnabled: v.boolean(),
   }),
+  mcp: v.object({
+    isEnabled: v.boolean(),
+    url: v.string(),
+  }),
 });
 
 export type PublicConfig = v.InferOutput<typeof publicConfigSchema>;

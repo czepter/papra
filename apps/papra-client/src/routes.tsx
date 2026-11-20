@@ -5,6 +5,8 @@ import { Match, Show, Switch, lazy } from 'solid-js';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { ApiKeysPage } from './modules/api-keys/pages/api-keys.page';
 import { CreateApiKeyPage } from './modules/api-keys/pages/create-api-key.page';
+import { McpSettingsPage } from './modules/mcp/pages/mcp-settings.page';
+import { OauthConsentPage } from './modules/oauth/pages/oauth-consent.page';
 import { authPagesPaths } from './modules/auth/auth.constants';
 import { PublicOnlyPage } from './modules/auth/middleware/protected-page.middleware';
 import { EmailValidationRequiredPage } from './modules/auth/pages/email-validation-required.page';
@@ -274,6 +276,10 @@ export const routes: RouteDefinition[] = [
         component: CreateApiKeyPage,
       },
       {
+        path: '/mcp-settings',
+        component: McpSettingsPage,
+      },
+      {
         path: '/invitations',
         component: InvitationsPage,
       },
@@ -302,6 +308,11 @@ export const routes: RouteDefinition[] = [
   {
     path: authPagesPaths.emailVerification,
     component: () => <PublicOnlyPage children={<EmailVerificationPage />} />,
+  },
+  {
+    // Reached by the OAuth authorization flow: outside the settings layout, it handles the signed-out case itself
+    path: '/oauth/consent',
+    component: OauthConsentPage,
   },
   {
     path: '/checkout-success',

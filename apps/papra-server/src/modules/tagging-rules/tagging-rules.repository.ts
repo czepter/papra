@@ -5,12 +5,14 @@ import type {
   TaggingRuleField,
   TaggingRuleOperator,
 } from './tagging-rules.types';
-import { injectArguments } from '@corentinth/chisels';
+import { injectArguments, safely } from '@corentinth/chisels';
 import { and, eq } from 'drizzle-orm';
 import { createError } from '../shared/errors/errors';
 import { omitUndefined } from '../shared/objects';
+import { generateId } from '../shared/random/ids';
 import { tagsTable } from '../tags/tags.table';
 import { aggregateTaggingRules } from './tagging-rules.repository.models';
+import { TAGGING_RULE_ID_PREFIX } from './tagging-rules.constants';
 import {
   taggingRuleActionsTable,
   taggingRuleConditionsTable,
@@ -26,6 +28,7 @@ export function createTaggingRulesRepository({ db }: { db: Database }) {
       getOrganizationEnabledTaggingRules,
       getOrganizationTaggingRule,
       createTaggingRule,
+      createTaggingRuleWithRelations,
       deleteOrganizationTaggingRule,
       updateOrganizationTaggingRule,
       createTaggingRuleConditions,
@@ -54,7 +57,13 @@ async function getOrganizationTaggingRules({
       taggingRuleActionsTable,
       eq(taggingRulesTable.id, taggingRuleActionsTable.taggingRuleId),
     )
-    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id));
+    .leftJoin(
+      tagsTable,
+      and(
+        eq(taggingRuleActionsTable.tagId, tagsTable.id),
+        eq(tagsTable.organizationId, taggingRulesTable.organizationId),
+      ),
+    );
 
   return aggregateTaggingRules({ rawTaggingRules });
 }
@@ -85,7 +94,13 @@ async function getOrganizationTaggingRule({
       taggingRuleActionsTable,
       eq(taggingRulesTable.id, taggingRuleActionsTable.taggingRuleId),
     )
-    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id));
+    .leftJoin(
+      tagsTable,
+      and(
+        eq(taggingRuleActionsTable.tagId, tagsTable.id),
+        eq(tagsTable.organizationId, taggingRulesTable.organizationId),
+      ),
+    );
 
   // oxlint-disable-next-line typescript/no-useless-default-assignment -- defensive fallback for empty result set
   const { taggingRules = [] } = aggregateTaggingRules({ rawTaggingRules });
@@ -120,7 +135,13 @@ async function getOrganizationEnabledTaggingRules({
       taggingRuleActionsTable,
       eq(taggingRulesTable.id, taggingRuleActionsTable.taggingRuleId),
     )
-    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id));
+    .leftJoin(
+      tagsTable,
+      and(
+        eq(taggingRuleActionsTable.tagId, tagsTable.id),
+        eq(tagsTable.organizationId, taggingRulesTable.organizationId),
+      ),
+    );
 
   return aggregateTaggingRules({ rawTaggingRules });
 }
@@ -137,6 +158,45 @@ async function createTaggingRule({
   if (!createdTaggingRule) {
     // Very unlikely to happen as the query will throw an error if the tagging rule is not created
     // it's for type safety
+    throw new Error('Failed to create tagging rule');
+  }
+
+  return { taggingRule: createdTaggingRule };
+}
+
+// Rule, conditions and actions are inserted in one batch (one transaction): no half created rule.
+// The id is generated here so the children can reference it within the same batch.
+async function createTaggingRuleWithRelations({
+  taggingRule,
+  conditions,
+  tagIds,
+  db,
+}: {
+  taggingRule: DbInsertableTaggingRule;
+  conditions: { field: TaggingRuleField; operator: TaggingRuleOperator; value: string }[];
+  tagIds: string[];
+  db: Database;
+}) {
+  const taggingRuleId = taggingRule.id ?? generateId({ prefix: TAGGING_RULE_ID_PREFIX });
+
+  const [insertedTaggingRules] = await db.batch([
+    db
+      .insert(taggingRulesTable)
+      .values({ ...taggingRule, id: taggingRuleId })
+      .returning(),
+    ...(conditions.length > 0
+      ? [
+          db
+            .insert(taggingRuleConditionsTable)
+            .values(conditions.map((condition) => ({ ...condition, taggingRuleId }))),
+        ]
+      : []),
+    db.insert(taggingRuleActionsTable).values(tagIds.map((tagId) => ({ taggingRuleId, tagId }))),
+  ]);
+
+  const [createdTaggingRule] = insertedTaggingRules;
+
+  if (!createdTaggingRule) {
     throw new Error('Failed to create tagging rule');
   }
 
@@ -182,8 +242,29 @@ async function updateOrganizationTaggingRule({
 }) {
   const { name, description, enabled, conditionMatchMode, conditions, tagIds } = taggingRule;
 
-  await db.transaction(async (tx) => {
-    const [updatedTaggingRule] = await tx
+  // The rule must belong to the organization before any of its conditions or actions is touched
+  const [existingTaggingRule] = await db
+    .select({ id: taggingRulesTable.id })
+    .from(taggingRulesTable)
+    .where(
+      and(
+        eq(taggingRulesTable.id, taggingRuleId),
+        eq(taggingRulesTable.organizationId, organizationId),
+      ),
+    );
+
+  if (!existingTaggingRule) {
+    throw createError({
+      statusCode: 404,
+      message: 'Tagging rule not found',
+      code: 'tagging-rules.not-found',
+    });
+  }
+
+  // db.batch runs the statements in one transaction on a single connection (and, unlike
+  // db.transaction, works with the in-memory test database). Conditions and actions are recreated.
+  const statements = [
+    db
       .update(taggingRulesTable)
       .set(omitUndefined({ name, description, enabled, conditionMatchMode }))
       .where(
@@ -191,10 +272,33 @@ async function updateOrganizationTaggingRule({
           eq(taggingRulesTable.id, taggingRuleId),
           eq(taggingRulesTable.organizationId, organizationId),
         ),
-      )
-      .returning();
+      ),
+    db
+      .delete(taggingRuleConditionsTable)
+      .where(eq(taggingRuleConditionsTable.taggingRuleId, taggingRuleId)),
+    ...(conditions.length > 0
+      ? [
+          db
+            .insert(taggingRuleConditionsTable)
+            .values(conditions.map((condition) => ({ ...condition, taggingRuleId }))),
+        ]
+      : []),
+    db
+      .delete(taggingRuleActionsTable)
+      .where(eq(taggingRuleActionsTable.taggingRuleId, taggingRuleId)),
+    db.insert(taggingRuleActionsTable).values(tagIds.map((tagId) => ({ taggingRuleId, tagId }))),
+  ] as const;
 
-    if (!updatedTaggingRule) {
+  const [, error] = await safely(async () => db.batch(statements));
+
+  if (error) {
+    // The rule can disappear between the check and the batch, the foreign keys then reject the inserts
+    const [stillExists] = await db
+      .select({ id: taggingRulesTable.id })
+      .from(taggingRulesTable)
+      .where(eq(taggingRulesTable.id, taggingRuleId));
+
+    if (!stillExists) {
       throw createError({
         statusCode: 404,
         message: 'Tagging rule not found',
@@ -202,24 +306,8 @@ async function updateOrganizationTaggingRule({
       });
     }
 
-    // Recreate conditions
-    await tx
-      .delete(taggingRuleConditionsTable)
-      .where(eq(taggingRuleConditionsTable.taggingRuleId, taggingRuleId));
-    if (conditions.length > 0) {
-      await tx
-        .insert(taggingRuleConditionsTable)
-        .values(conditions.map((condition) => ({ ...condition, taggingRuleId })));
-    }
-
-    // Recreate actions
-    await tx
-      .delete(taggingRuleActionsTable)
-      .where(eq(taggingRuleActionsTable.taggingRuleId, taggingRuleId));
-    await tx
-      .insert(taggingRuleActionsTable)
-      .values(tagIds.map((tagId) => ({ taggingRuleId, tagId })));
-  });
+    throw error;
+  }
 }
 
 async function createTaggingRuleConditions({

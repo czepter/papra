@@ -22,6 +22,11 @@ export const SettingsLayout: ParentComponent = (props) => {
           href: '/api-keys',
         },
         {
+          label: t('layout.menu.mcp'),
+          icon: 'i-tabler-plug-connected',
+          href: '/mcp-settings',
+        },
+        {
           label: t('layout.menu.invitations'),
           icon: 'i-tabler-mail',
           href: '/invitations',

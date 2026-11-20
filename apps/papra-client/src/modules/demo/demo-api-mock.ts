@@ -210,6 +210,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
             github: { isEnabled: false },
           },
         },
+        mcp: { isEnabled: false, url: '' },
       },
     }),
   }),
@@ -1042,6 +1043,18 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     handler: async ({ params: { apiKeyId } }) => {
       await apiKeyStorage.removeItem(apiKeyId);
     },
+  }),
+
+  ...defineHandler({
+    path: '/api/users/me/connected-apps',
+    method: 'GET',
+    handler: async () => ({ connectedApps: [] }),
+  }),
+
+  ...defineHandler({
+    path: '/api/users/me/connected-apps/:clientId',
+    method: 'DELETE',
+    handler: async () => {},
   }),
 
   ...defineHandler({

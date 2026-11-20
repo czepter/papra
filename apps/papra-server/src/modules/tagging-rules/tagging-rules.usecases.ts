@@ -15,10 +15,32 @@ import { safely, safelySync } from '@corentinth/chisels';
 import { createError } from '../shared/errors/errors';
 import { createLogger } from '../shared/logger/logger';
 import { isNil, uniq } from '../shared/utils';
+import { createTagNotFoundError } from '../tags/tags.errors';
 import { applyTagsToDocuments } from '../tags/tags.usecases';
 import { createTaggingRuleOperatorValidatorRegistry } from './conditions/tagging-rule-conditions.registry';
 import { CONDITION_MATCH_MODES } from './tagging-rules.constants';
 import { getDocumentFieldValue } from './tagging-rules.models';
+
+// The tag ids of a rule must all be tags of the organization, whatever the entry point (REST, MCP).
+// Returns the deduplicated ids.
+export async function ensureTagsBelongToOrganization({
+  tagIds,
+  organizationId,
+  tagsRepository,
+}: {
+  tagIds: string[];
+  organizationId: string;
+  tagsRepository: TagsRepository;
+}) {
+  const uniqueTagIds = uniq(tagIds);
+  const { tags } = await tagsRepository.getTagsByIds({ tagIds: uniqueTagIds, organizationId });
+
+  if (tags.length !== uniqueTagIds.length) {
+    throw createTagNotFoundError();
+  }
+
+  return { tagIds: uniqueTagIds };
+}
 
 export async function createTaggingRule({
   name,
@@ -45,23 +67,13 @@ export async function createTaggingRule({
 
   taggingRulesRepository: TaggingRulesRepository;
 }) {
-  const { taggingRule } = await taggingRulesRepository.createTaggingRule({
-    taggingRule: {
-      name,
-      description,
-      enabled,
-      conditionMatchMode,
-      organizationId,
-    },
+  const { taggingRule } = await taggingRulesRepository.createTaggingRuleWithRelations({
+    taggingRule: { name, description, enabled, conditionMatchMode, organizationId },
+    conditions,
+    tagIds,
   });
 
-  const { id: taggingRuleId } = taggingRule;
-
-  await Promise.all([
-    conditions.length > 0 &&
-      taggingRulesRepository.createTaggingRuleConditions({ taggingRuleId, conditions }),
-    taggingRulesRepository.createTaggingRuleActions({ taggingRuleId, tagIds }),
-  ]);
+  return { taggingRule };
 }
 
 /**
