@@ -4,6 +4,7 @@ import type { Config } from '../../config/config.types';
 import type { TaskServices } from '../../tasks/tasks.services';
 import type { StorageService } from '../../storage/storage.services';
 import { createLogger } from '../../shared/logger/logger';
+import { createDocumentPreviewsRepository } from '../../document-previews/document-previews.repository';
 import { createDocumentsRepository } from '../documents.repository';
 import { deleteExpiredDocuments } from '../documents.usecases';
 
@@ -33,6 +34,7 @@ export async function registerHardDeleteExpiredDocumentsTask({
       const { deletedDocumentsCount } = await deleteExpiredDocuments({
         config,
         documentsRepository,
+        documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
         documentsStorageService,
         eventServices,
       });

@@ -41,7 +41,10 @@ function buildTextCondition({ expression }: { expression: TextExpression }): Doc
   const searchText = expression.value.trim().toLowerCase();
 
   return ({ document }) =>
-    someCorpusTokenStartsWith({ corpus: [document.name, document.content], prefix: searchText });
+    someCorpusTokenStartsWith({
+      corpus: [document.name, document.content ?? ''],
+      prefix: searchText,
+    });
 }
 
 function buildAndCondition({ expression }: { expression: AndExpression }): DocumentCondition {
@@ -108,7 +111,8 @@ function buildContentFilterCondition({
     return falseCondition;
   }
 
-  return ({ document }) => someCorpusTokenStartsWith({ corpus: document.content, prefix: value });
+  return ({ document }) =>
+    someCorpusTokenStartsWith({ corpus: document.content ?? '', prefix: value });
 }
 
 function buildCreatedFilterCondition({

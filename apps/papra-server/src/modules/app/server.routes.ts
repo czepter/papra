@@ -7,6 +7,8 @@ import { registerDocumentViewsRoutes } from '../document-views/document-views.ro
 import { registerDocumentActivityRoutes } from '../documents/document-activity/document-activity.routes';
 import { registerDocumentsBatchRoutes } from '../documents/documents-batch/documents-batch.routes';
 import { registerDocumentsRoutes } from '../documents/documents.routes';
+import { registerDocumentsViewPreferencesRoutes } from '../documents-view-preferences/documents-view-preferences.routes';
+import { registerDocumentPreviewsRoutes } from '../document-previews/document-previews.routes';
 import { registerIntakeEmailsRoutes } from '../intake-emails/intake-emails.routes';
 import { registerInvitationsRoutes } from '../invitations/invitations.routes';
 import { registerOrganizationsRoutes } from '../organizations/organizations.routes';
@@ -23,8 +25,11 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerSubscriptionsRoutes(context);
   registerOrganizationsRoutes(context);
   registerOrganizationSettingsRoutes(context);
+  // Before the documents routes: `documents/view-preferences` must not be captured by `documents/:documentId`
+  registerDocumentsViewPreferencesRoutes(context);
   registerDocumentsRoutes(context);
   registerDocumentsBatchRoutes(context);
+  registerDocumentPreviewsRoutes(context);
   registerDocumentViewsRoutes(context);
   registerTaggingRulesRoutes(context);
   registerApiKeysRoutes(context);

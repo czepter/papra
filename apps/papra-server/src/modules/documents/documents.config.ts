@@ -36,4 +36,12 @@ export const documentsConfig = {
     default: true,
     env: 'DOCUMENTS_CONTENT_EXTRACTION_ENABLED',
   },
+  previews: {
+    isEnabled: {
+      doc: 'Whether to generate and serve preview images (thumbnails) of documents, supported for PDFs and images',
+      schema: booleanishSchema,
+      default: true,
+      env: 'DOCUMENT_PREVIEWS_ENABLED',
+    },
+  },
 } as const satisfies ConfigDefinition;

@@ -1,4 +1,5 @@
 import type { Config } from '../config/config.types';
+import type { DocumentPreviewsRepository } from '../document-previews/document-previews.repository';
 import type { DocumentsRepository } from '../documents/documents.repository';
 import type { StorageService } from '../storage/storage.services';
 import type { EmailsServices } from '../emails/emails.services';
@@ -12,7 +13,7 @@ import type { SubscriptionsServices } from '../subscriptions/subscriptions.servi
 import type { UsersRepository } from '../users/users.repository';
 import type { OrganizationsRepository } from './organizations.repository';
 import type { OrganizationRole } from './organizations.types';
-import { buildUrl } from '@corentinth/chisels';
+import { buildUrl, safely } from '@corentinth/chisels';
 import { createForbiddenError } from '../app/auth/auth.errors';
 import { getClientBaseUrl } from '../config/config.models';
 import { getOrganizationPlan } from '../plans/plans.usecases';
@@ -40,6 +41,7 @@ import {
   canUserRemoveMemberFromOrganization,
   getUserMaxOrganizationCount,
 } from './organizations.models';
+import { deleteDocumentPreviewFiles } from '../document-previews/document-previews.usecases';
 
 export async function createOrganization({
   name,
@@ -710,6 +712,7 @@ export async function restoreOrganization({
 export async function purgeExpiredSoftDeletedOrganization({
   organizationId,
   documentsRepository,
+  documentPreviewsRepository,
   organizationsRepository,
   documentsStorageService,
   logger = createLogger({ namespace: 'organizations.purge' }),
@@ -717,6 +720,7 @@ export async function purgeExpiredSoftDeletedOrganization({
 }: {
   organizationId: string;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   organizationsRepository: OrganizationsRepository;
   documentsStorageService: StorageService;
   logger?: Logger;
@@ -734,6 +738,23 @@ export async function purgeExpiredSoftDeletedOrganization({
   let failedCount = 0;
 
   for await (const document of documentsIterator) {
+    // Previews cleanup is independent of the original file deletion: a failing original must not leave the previews files behind
+    const [, previewsError] = await safely(
+      deleteDocumentPreviewFiles({
+        documentId: document.id,
+        documentPreviewsRepository,
+        documentsStorageService,
+        logger,
+      }),
+    );
+
+    if (previewsError) {
+      logger.error(
+        { organizationId, documentId: document.id, error: previewsError },
+        'Failed to delete document previews files from storage',
+      );
+    }
+
     try {
       await documentsStorageService.deleteFile({ storageKey: document.originalStorageKey });
       logger.debug(
@@ -765,12 +786,14 @@ export async function purgeExpiredSoftDeletedOrganization({
 export async function purgeExpiredSoftDeletedOrganizations({
   organizationsRepository,
   documentsRepository,
+  documentPreviewsRepository,
   documentsStorageService,
   logger = createLogger({ namespace: 'organizations.purge' }),
   now = new Date(),
 }: {
   organizationsRepository: OrganizationsRepository;
   documentsRepository: DocumentsRepository;
+  documentPreviewsRepository: DocumentPreviewsRepository;
   documentsStorageService: StorageService;
   logger?: Logger;
   now?: Date;
@@ -791,6 +814,7 @@ export async function purgeExpiredSoftDeletedOrganizations({
       await purgeExpiredSoftDeletedOrganization({
         organizationId,
         documentsRepository,
+        documentPreviewsRepository,
         organizationsRepository,
         documentsStorageService,
         logger,

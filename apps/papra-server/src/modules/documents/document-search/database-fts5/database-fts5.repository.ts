@@ -6,6 +6,7 @@ import { and, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
 import { customPropertyDefinitionsTable } from '../../../custom-properties/custom-properties.table';
 import { isNonEmptyArray } from '../../../shared/arrays/arrays.utils';
 import { omit, omitUndefined } from '../../../shared/objects';
+import { DOCUMENT_CONTENT_EXCERPT_LENGTH } from '../../documents.constants';
 import { documentsTable } from '../../documents.table';
 import { DEFAULT_DOCUMENT_SEARCH_SORT } from '../document-search.constants';
 import { makeSearchOrderByClauses, makeSearchWhereClause } from './database-fts5.repository.models';
@@ -77,6 +78,11 @@ async function searchOrganizationDocuments({
     db
       .select({
         ...omit(getTableColumns(documentsTable), ['content']),
+        // The full content is not loaded in lists, only its first characters
+        contentExcerpt:
+          sql<string>`substr(${documentsTable.content}, 1, ${DOCUMENT_CONTENT_EXCERPT_LENGTH})`.as(
+            'content_excerpt',
+          ),
       })
       .from(paginatedIdsSubquery)
       .innerJoin(documentsTable, eq(documentsTable.id, paginatedIdsSubquery.id))
