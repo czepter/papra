@@ -13,6 +13,7 @@ import type { TaggingRulesRepository } from '../tagging-rules/tagging-rules.repo
 import type { TagsRepository } from '../tags/tags.repository';
 import type { TaskServices } from '../tasks/tasks.services';
 import type { DocumentsRepository } from './documents.repository';
+import type { KvStore } from '../kv-store/kv-store.types';
 import type { Document } from './documents.types';
 import type { StorageService } from '../storage/storage.services';
 import type { EncryptionContext } from '../storage/drivers/drivers.models';
@@ -22,6 +23,10 @@ import { PassThrough } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { safely } from '@corentinth/chisels';
 import pLimit from 'p-limit';
+import { computeRetryAfterDuration } from '../app/rate-limit/rate-limit.models';
+import { scopeKvStoreForRateLimit } from '../app/rate-limit/rate-limit.kv-store';
+import { getRateLimit } from '../app/rate-limit/rate-limit.usecases';
+import { joinKeyParts } from '../kv-store/kv-store.models';
 import { buildCustomPropertiesArray } from '../custom-properties/custom-properties.models';
 import { createOrganizationDocumentStorageLimitReachedError } from '../organizations/organizations.errors';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
@@ -43,6 +48,7 @@ import {
   createDocumentAlreadyExistsError,
   createDocumentNotDeletedError,
   createDocumentNotFoundError,
+  createDocumentReprocessingDisabledError,
   createDocumentSizeTooLargeError,
 } from './documents.errors';
 import {
@@ -474,6 +480,55 @@ export async function getDocumentOrThrow({
   }
 
   return { document };
+}
+
+// Shared by the REST route and the MCP tool, so both apply the same checks and the same rate limit
+export async function scheduleDocumentReprocessing({
+  documentId,
+  organizationId,
+  config,
+  documentsRepository,
+  kvStore,
+  taskServices,
+}: {
+  documentId: string;
+  organizationId: string;
+  config: Config;
+  documentsRepository: DocumentsRepository;
+  kvStore: KvStore;
+  taskServices: TaskServices;
+}): Promise<{ hasExceededLimit: false } | { hasExceededLimit: true; retryAfter: number }> {
+  if (!config.documents.isReprocessingEnabled) {
+    throw createDocumentReprocessingDisabledError();
+  }
+
+  const { document } = await getDocumentOrThrow({
+    documentId,
+    organizationId,
+    documentsRepository,
+  });
+
+  if (document.isDeleted) {
+    throw createDocumentNotFoundError();
+  }
+
+  const { hasExceededLimit, resetAt } = await getRateLimit({
+    ...config.documents.reprocessingRateLimit,
+    key: joinKeyParts(['document-reprocessing', organizationId]),
+    kvStore: scopeKvStoreForRateLimit({ kvStore }),
+  });
+
+  if (hasExceededLimit) {
+    return { hasExceededLimit: true, retryAfter: computeRetryAfterDuration({ resetAt }) };
+  }
+
+  // Reuse the processing pipeline without clearing content or tags while the job is pending.
+  await taskServices.scheduleJob({
+    taskName: 'extract-document-file-content',
+    data: { documentId, organizationId, ocrLanguages: config.documents.ocrLanguages },
+  });
+
+  return { hasExceededLimit: false };
 }
 
 export async function ensureDocumentExists({

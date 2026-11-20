@@ -18,6 +18,7 @@ import {
 } from './tools/documents.mcp-tools';
 import { enrichDocumentTool } from './tools/enrichment.mcp-tools';
 import { listOrganizationsTool, pingTool } from './tools/organizations.mcp-tools';
+import { reprocessDocumentTool } from './tools/reprocessing.mcp-tools';
 import {
   addDocumentTagTool,
   createTagTool,
@@ -61,6 +62,7 @@ export const mcpTools: McpToolDefinition[] = [
   setDocumentCustomPropertyTool,
   deleteDocumentCustomPropertyTool,
   enrichDocumentTool,
+  reprocessDocumentTool,
   listTaggingRulesTool,
   getTaggingRuleTool,
   createTaggingRuleTool,

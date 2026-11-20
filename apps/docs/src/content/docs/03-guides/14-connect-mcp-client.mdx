@@ -89,6 +89,7 @@ Each tool needs the permissions listed below, the same ones as the matching REST
 | `update_document` | Updates the name, text, date or notes of a document. | `documents:update` |
 | `upload_document` | Uploads a document from base64 encoded content. | `documents:create` |
 | `enrich_document` | Schedules auto-tagging of a document in the background. | `documents:update` |
+| `reprocess_document` | Schedules a new text extraction (OCR) of a document in the background. Rate limited per organization. | `documents:update` |
 | `list_tags` | Lists the tags of an organization. | `tags:read` |
 | `create_tag` | Creates a tag. | `tags:create` |
 | `update_tag` | Updates a tag. | `tags:update` |
