@@ -976,6 +976,24 @@ export const translations: Partial<TranslationsDictionary> = {
   'api-keys.create.created.title': 'API-Schlüssel erstellt',
   'api-keys.create.created.description':
     'Der API-Schlüssel wurde erfolgreich erstellt. Speichern Sie ihn an einem sicheren Ort, da er nicht erneut angezeigt wird.',
+  'mcp-settings.title': 'MCP',
+  'mcp-settings.description':
+    'Verbinde KI-Assistenten und andere MCP-Clients mit deinem Papra-Konto.',
+  'mcp-settings.status.label': 'MCP-Server',
+  'mcp-settings.status.enabled': 'Aktiviert',
+  'mcp-settings.status.disabled': 'Deaktiviert',
+  'mcp-settings.disabled-hint':
+    'Der MCP-Server ist auf dieser Instanz ausgeschaltet. Ein Administrator kann ihn mit MCP_SERVER_ENABLED=true einschalten.',
+  'mcp-settings.url.label': 'Server-URL',
+  'mcp-settings.url.copy': 'Kopieren',
+  'mcp-settings.url.copied': 'Kopiert!',
+  'mcp-settings.instructions.title': 'So verbindest du dich',
+  'mcp-settings.instructions.step-create-key':
+    'Erstelle einen API-Schlüssel mit der Berechtigung organizations:read.',
+  'mcp-settings.instructions.api-keys-link': 'Zu den API-Schlüsseln',
+  'mcp-settings.instructions.step-add-url': 'Trage die obige Server-URL in deinem MCP-Client ein.',
+  'mcp-settings.instructions.step-send-key':
+    'Konfiguriere den Client so, dass er den Schlüssel als Header "Authorization: Bearer <Schlüssel>" sendet.',
   'api-keys.list.title': 'API-Schlüssel',
   'api-keys.list.description': 'Verwalten Sie hier Ihre API-Schlüssel.',
   'api-keys.list.create': 'API-Schlüssel erstellen',
@@ -1052,6 +1070,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'layout.menu.deleted-documents': 'Gelöschte Dokumente',
   'layout.menu.organization-settings': 'Einstellungen',
   'layout.menu.api-keys': 'API-Schlüssel',
+  'layout.menu.mcp': 'MCP',
   'layout.menu.settings': 'Einstellungen',
   'layout.menu.account': 'Konto',
   'layout.menu.general-settings': 'Allgemeine Einstellungen',

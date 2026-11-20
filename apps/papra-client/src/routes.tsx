@@ -5,6 +5,7 @@ import { Match, Show, Switch, lazy } from 'solid-js';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { ApiKeysPage } from './modules/api-keys/pages/api-keys.page';
 import { CreateApiKeyPage } from './modules/api-keys/pages/create-api-key.page';
+import { McpSettingsPage } from './modules/mcp/pages/mcp-settings.page';
 import { authPagesPaths } from './modules/auth/auth.constants';
 import { PublicOnlyPage } from './modules/auth/middleware/protected-page.middleware';
 import { EmailValidationRequiredPage } from './modules/auth/pages/email-validation-required.page';
@@ -272,6 +273,10 @@ export const routes: RouteDefinition[] = [
       {
         path: '/api-keys/create',
         component: CreateApiKeyPage,
+      },
+      {
+        path: '/mcp-settings',
+        component: McpSettingsPage,
       },
       {
         path: '/invitations',

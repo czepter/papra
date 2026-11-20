@@ -989,6 +989,23 @@ export const translations = {
   'api-keys.create.created.title': 'API key created',
   'api-keys.create.created.description':
     'The API key has been created successfully. Save it in a secure location as it will not be displayed again.',
+  'mcp-settings.title': 'MCP',
+  'mcp-settings.description': 'Connect AI assistants and other MCP clients to your Papra account.',
+  'mcp-settings.status.label': 'MCP server',
+  'mcp-settings.status.enabled': 'Enabled',
+  'mcp-settings.status.disabled': 'Disabled',
+  'mcp-settings.disabled-hint':
+    'The MCP server is turned off on this instance. An administrator can turn it on by setting MCP_SERVER_ENABLED=true.',
+  'mcp-settings.url.label': 'Server URL',
+  'mcp-settings.url.copy': 'Copy',
+  'mcp-settings.url.copied': 'Copied!',
+  'mcp-settings.instructions.title': 'How to connect',
+  'mcp-settings.instructions.step-create-key':
+    'Create an API key with the organizations:read permission.',
+  'mcp-settings.instructions.api-keys-link': 'Go to API keys',
+  'mcp-settings.instructions.step-add-url': 'Add the server URL above to your MCP client.',
+  'mcp-settings.instructions.step-send-key':
+    'Configure the client to send the key as an "Authorization: Bearer <key>" header.',
   'api-keys.list.title': 'API keys',
   'api-keys.list.description': 'Manage your API keys here.',
   'api-keys.list.create': 'Create API key',
@@ -1061,6 +1078,7 @@ export const translations = {
   'layout.menu.deleted-documents': 'Deleted documents',
   'layout.menu.organization-settings': 'Settings',
   'layout.menu.api-keys': 'API keys',
+  'layout.menu.mcp': 'MCP',
   'layout.menu.settings': 'Settings',
   'layout.menu.account': 'Account',
   'layout.menu.general-settings': 'General settings',
