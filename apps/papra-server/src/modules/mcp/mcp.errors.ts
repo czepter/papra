@@ -18,4 +18,6 @@ export const connectedAppNotFoundErrorDefinition = {
   statusCode: 404,
 } as const;
 
-export const createConnectedAppNotFoundError = createErrorFactory(connectedAppNotFoundErrorDefinition);
+export const createConnectedAppNotFoundError = createErrorFactory(
+  connectedAppNotFoundErrorDefinition,
+);

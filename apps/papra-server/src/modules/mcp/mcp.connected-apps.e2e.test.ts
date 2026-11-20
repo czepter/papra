@@ -52,10 +52,29 @@ async function callMcp({ t, token }: { t: Setup; token: string }) {
 async function listConnectedApps({ t, cookie }: { t: Setup; cookie: string }) {
   const response = await t.app.request('/api/users/me/connected-apps', { headers: { cookie } });
 
-  return { response, body: (await response.json()) as { connectedApps: { clientId: string; clientName: string | null; scopes: string[]; redirectHosts: string[]; lastActiveAt: string | null }[] } };
+  return {
+    response,
+    body: (await response.json()) as {
+      connectedApps: {
+        clientId: string;
+        clientName: string | null;
+        scopes: string[];
+        redirectHosts: string[];
+        lastActiveAt: string | null;
+      }[];
+    },
+  };
 }
 
-function revokeConnectedApp({ t, cookie, clientId }: { t: Setup; cookie: string; clientId: string }) {
+async function revokeConnectedApp({
+  t,
+  cookie,
+  clientId,
+}: {
+  t: Setup;
+  cookie: string;
+  clientId: string;
+}) {
   return t.app.request(`/api/users/me/connected-apps/${clientId}`, {
     method: 'DELETE',
     headers: { cookie },
@@ -85,7 +104,11 @@ describe('mcp connected apps e2e', () => {
 
     // A new authorization request shows the consent page again instead of auto-approving
     const { challenge } = createPkcePair();
-    const { response: authorizeResponse, location } = await t.authorize({ cookie: t.cookie1, clientId, challenge });
+    const { response: authorizeResponse, location } = await t.authorize({
+      cookie: t.cookie1,
+      clientId,
+      challenge,
+    });
     expect(authorizeResponse.status).to.eql(302);
     expect(location).to.match(new RegExp(`^${t.urls.consentPageUrl}\\?`));
     expect(new URL(location as string).searchParams.get('code')).to.eql(null);
@@ -110,7 +133,10 @@ describe('mcp connected apps e2e', () => {
     await revokeConnectedApp({ t, cookie: t.cookie1, clientId });
     await approve({ t, cookie: t.cookie1, clientId });
 
-    const refreshed = await t.refresh({ clientId, refreshToken: oldTokens.refresh_token as string });
+    const refreshed = await t.refresh({
+      clientId,
+      refreshToken: oldTokens.refresh_token as string,
+    });
     expect(refreshed.status).toBeGreaterThanOrEqual(400);
   });
 
@@ -119,7 +145,9 @@ describe('mcp connected apps e2e', () => {
     const { response: registerResponse } = await t.registerClient({ client_name: 'Shared Client' });
     const { client_id: clientId } = (await registerResponse.json()) as { client_id: string };
     const { response: otherRegisterResponse } = await t.registerClient({ client_name: 'Only Bob' });
-    const { client_id: otherClientId } = (await otherRegisterResponse.json()) as { client_id: string };
+    const { client_id: otherClientId } = (await otherRegisterResponse.json()) as {
+      client_id: string;
+    };
 
     const tokens1 = await approve({ t, cookie: t.cookie1, clientId });
     const tokens2 = await approve({ t, cookie: t.cookie2, clientId });
@@ -139,7 +167,12 @@ describe('mcp connected apps e2e', () => {
     const raw = JSON.stringify(body);
     expect(raw).not.toContain(otherClientId);
     expect(raw).not.toContain('Only Bob');
-    for (const secret of [tokens1.access_token, tokens1.refresh_token, tokens2.access_token, tokens2.refresh_token]) {
+    for (const secret of [
+      tokens1.access_token,
+      tokens1.refresh_token,
+      tokens2.access_token,
+      tokens2.refresh_token,
+    ]) {
       expect(raw).not.toContain(secret as string);
     }
     expect(raw).not.toMatch(/clientSecret|client_secret|refreshToken|accessToken/);
@@ -204,7 +237,9 @@ describe('mcp connected apps e2e', () => {
       const t = await setupWithTwoUsers();
 
       expect((await t.app.request('/api/users/me/connected-apps')).status).to.eql(401);
-      expect((await t.app.request('/api/users/me/connected-apps/abc', { method: 'DELETE' })).status).to.eql(401);
+      expect(
+        (await t.app.request('/api/users/me/connected-apps/abc', { method: 'DELETE' })).status,
+      ).to.eql(401);
     });
 
     test('an api key is refused, whatever its permissions', async () => {
@@ -220,7 +255,10 @@ describe('mcp connected apps e2e', () => {
       const headers = { authorization: `Bearer ${token}` };
 
       expect((await t.app.request('/api/users/me/connected-apps', { headers })).status).to.eql(401);
-      expect((await t.app.request('/api/users/me/connected-apps/abc', { method: 'DELETE', headers })).status).to.eql(401);
+      expect(
+        (await t.app.request('/api/users/me/connected-apps/abc', { method: 'DELETE', headers }))
+          .status,
+      ).to.eql(401);
     });
 
     test('an oauth access token is refused', async () => {
@@ -231,7 +269,14 @@ describe('mcp connected apps e2e', () => {
       const headers = { authorization: `Bearer ${tokens.access_token}` };
 
       expect((await t.app.request('/api/users/me/connected-apps', { headers })).status).to.eql(401);
-      expect((await t.app.request(`/api/users/me/connected-apps/${clientId}`, { method: 'DELETE', headers })).status).to.eql(401);
+      expect(
+        (
+          await t.app.request(`/api/users/me/connected-apps/${clientId}`, {
+            method: 'DELETE',
+            headers,
+          })
+        ).status,
+      ).to.eql(401);
       expect((await callMcp({ t, token: tokens.access_token })).status).to.eql(200);
     });
 
@@ -241,7 +286,10 @@ describe('mcp connected apps e2e', () => {
       const { cookie } = await t.signIn();
 
       const list = await t.app.request('/api/users/me/connected-apps', { headers: { cookie } });
-      const revoke = await t.app.request('/api/users/me/connected-apps/abc', { method: 'DELETE', headers: { cookie } });
+      const revoke = await t.app.request('/api/users/me/connected-apps/abc', {
+        method: 'DELETE',
+        headers: { cookie },
+      });
 
       expect(list.status).to.eql(404);
       expect(revoke.status).to.eql(404);

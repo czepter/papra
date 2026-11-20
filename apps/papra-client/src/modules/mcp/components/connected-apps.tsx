@@ -41,9 +41,7 @@ const ConnectedAppScopes: Component<{ scopes: string[] }> = (props) => {
           position += 1;
 
           return (
-            getIsExpanded() ||
-            position <= COLLAPSED_SCOPES_COUNT ||
-            isDestructiveScope({ scope })
+            getIsExpanded() || position <= COLLAPSED_SCOPES_COUNT || isDestructiveScope({ scope })
           );
         })
         .map(({ scope }) => scope),
@@ -234,7 +232,10 @@ export const ConnectedApps: Component = () => {
 
         <Match when={query.data && query.data.connectedApps.length === 0}>
           <div class="mt-4 rounded-lg border border-dashed p-6 text-center">
-            <div class="i-tabler-plug-off size-8 text-muted-foreground mx-auto" aria-hidden="true" />
+            <div
+              class="i-tabler-plug-off size-8 text-muted-foreground mx-auto"
+              aria-hidden="true"
+            />
             <p class="mt-2 text-sm font-medium">{t('mcp-settings.connected-apps.empty.title')}</p>
             <p class="mt-1 text-sm text-muted-foreground">
               {t('mcp-settings.connected-apps.empty.description')}

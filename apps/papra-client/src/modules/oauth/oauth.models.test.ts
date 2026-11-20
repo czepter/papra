@@ -43,9 +43,14 @@ describe('oauth models', () => {
       const keys = Object.keys(en).filter(
         (key) =>
           key.startsWith('mcp-settings.connected-apps.') ||
-          ['oauth-consent.revoke-later', 'oauth-consent.revoke-later-link', 'oauth-consent.scopes.destructive-cue'].includes(key),
+          [
+            'oauth-consent.revoke-later',
+            'oauth-consent.revoke-later-link',
+            'oauth-consent.scopes.destructive-cue',
+          ].includes(key),
       );
-      const placeholders = (text: string) => [...text.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(([, name]) => name).sort();
+      const placeholders = (text: string) =>
+        [...text.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(([, name]) => name).sort();
 
       expect(keys.length).toBeGreaterThan(15);
       for (const key of keys) {
@@ -151,7 +156,9 @@ describe('oauth models', () => {
           permission.endsWith(':delete'),
         );
       }
-      expect(API_KEY_PERMISSIONS_VALUES.filter((scope) => isDestructiveScope({ scope }))).toHaveLength(4);
+      expect(
+        API_KEY_PERMISSIONS_VALUES.filter((scope) => isDestructiveScope({ scope })),
+      ).toHaveLength(4);
     });
 
     test('offline access, unknown scopes and look-alikes are not destructive', () => {

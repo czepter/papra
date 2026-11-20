@@ -36,7 +36,13 @@ describe('mcp connected apps models', () => {
 
     test('invalid URIs, URIs without a host and malformed JSON are skipped', () => {
       expect(
-        getRedirectHosts({ redirectUris: JSON.stringify(['not a uri', 'urn:ietf:wg:oauth:2.0:oob', 'https://ok.example/cb']) }),
+        getRedirectHosts({
+          redirectUris: JSON.stringify([
+            'not a uri',
+            'urn:ietf:wg:oauth:2.0:oob',
+            'https://ok.example/cb',
+          ]),
+        }),
       ).to.eql(['ok.example']);
       expect(getRedirectHosts({ redirectUris: '{broken' })).to.eql([]);
       expect(getRedirectHosts({ redirectUris: null })).to.eql([]);

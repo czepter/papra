@@ -17,17 +17,15 @@ export async function fetchConnectedApps() {
   });
 
   return {
-    connectedApps: connectedApps.map(
-      (app): ConnectedApp => ({
-        clientId: app.clientId,
-        clientName: app.clientName ?? undefined,
-        redirectHosts: app.redirectHosts,
-        scopes: app.scopes,
-        authorizedAt: new Date(app.authorizedAt),
-        updatedAt: new Date(app.updatedAt),
-        lastActiveAt: app.lastActiveAt ? new Date(app.lastActiveAt) : undefined,
-      }),
-    ),
+    connectedApps: connectedApps.map((app): ConnectedApp => ({
+      clientId: app.clientId,
+      clientName: app.clientName ?? undefined,
+      redirectHosts: app.redirectHosts,
+      scopes: app.scopes,
+      authorizedAt: new Date(app.authorizedAt),
+      updatedAt: new Date(app.updatedAt),
+      lastActiveAt: app.lastActiveAt ? new Date(app.lastActiveAt) : undefined,
+    })),
   };
 }
 

@@ -10,7 +10,10 @@ export async function revokeConnectedApp({
   clientId: string;
   mcpConnectedAppsRepository: McpConnectedAppsRepository;
 }) {
-  const { hasRevoked } = await mcpConnectedAppsRepository.revokeUserConnectedApp({ userId, clientId });
+  const { hasRevoked } = await mcpConnectedAppsRepository.revokeUserConnectedApp({
+    userId,
+    clientId,
+  });
 
   // Same answer for an unknown client and for a client only another user approved
   if (!hasRevoked) {

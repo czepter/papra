@@ -77,6 +77,10 @@ export const sidebar = [
         label: 'Document Auto Tagging',
         slug: 'guides/auto-tagging',
       },
+      {
+        label: 'Connect an MCP Client',
+        slug: 'guides/connect-mcp-client',
+      },
     ],
   },
   {

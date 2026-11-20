@@ -1,0 +1,123 @@
+---
+title: Connect an MCP client
+description: Let AI assistants and other MCP clients work with your Papra documents, using your Papra account or an API key.
+slug: guides/connect-mcp-client
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Papra ships with a Model Context Protocol (MCP) server. An MCP client, such as an AI assistant, can connect to it to search your documents, read their text, manage tags and custom properties, and upload new documents on your behalf. This guide explains how to connect a client, which tools it gets, and what to know when you host Papra behind a reverse proxy.
+
+## Server URL
+
+The MCP server lives at the `/mcp` path of your Papra instance:
+
+```
+<APP_BASE_URL>/mcp
+```
+
+For example `https://papra.example.com/mcp`. The exact URL for your instance is shown on the MCP page of your user settings, with a button to copy it.
+
+## Enable or disable the server
+
+The MCP server is enabled by default. Set `MCP_SERVER_ENABLED=false` to turn it off. This also switches off the sign-in flow for MCP clients described below, and the connected apps list in the user settings. See the [configuration reference](/self-hosting/configuration) for the details.
+
+```bash
+MCP_SERVER_ENABLED=false
+```
+
+## Connect with your Papra account (recommended)
+
+Most MCP clients can connect with the server URL alone:
+
+1. Add the server URL to your MCP client.
+2. The client opens a Papra page in your browser. Sign in if needed.
+3. Check the permissions the client asks for, then choose **Allow**. Choose **Deny** to refuse.
+
+The client only gets the permissions you approved, and it only reaches the organizations you are a member of. Permissions that delete data are marked on the approval page.
+
+Access tokens expire after 15 minutes. If the client asked to stay connected, it renews them in the background for up to 30 days without asking you again. After that, you approve it again.
+
+### Revoke access
+
+Open the MCP page in your user settings and look at the **Connected apps** list. It shows each app you approved, the address it sends you back to, the permissions you granted, when you approved it and when it was last active. Choose **Revoke** and confirm to cut an app off. It loses access immediately, and it has to be approved again to reconnect. Other people who approved the same app keep their own access.
+
+## Connect with an API key
+
+If your client cannot use the sign-in flow, use an API key instead:
+
+1. Create an API key in the **API keys** page of your user settings and grant it the permissions the tools you need require (see the [tool list](#tools)).
+2. Add the server URL to your MCP client.
+3. Send the key as a bearer token in the `Authorization` header of every request.
+
+```
+Authorization: Bearer <your API key>
+```
+
+A generic client configuration looks like this, the exact format depends on your client:
+
+```json
+{
+  "mcpServers": {
+    "papra": {
+      "url": "https://papra.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <your API key>"
+      }
+    }
+  }
+}
+```
+
+<Aside type="note">
+  API keys and approved apps both reach your documents through the same tools. Use the narrowest set of permissions that does the job, and delete keys you no longer use.
+</Aside>
+
+## Tools
+
+Each tool needs the permissions listed below, the same ones as the matching REST API route. With the sign-in flow, these are the permissions you approve. With an API key, the key must have all of them. Tools only reach organizations the user is a member of.
+
+| Tool | What it does | Required permissions |
+| --- | --- | --- |
+| `ping` | Checks that the connection works. | None |
+| `list_organizations` | Lists your organizations. | `organizations:read` |
+| `search_documents` | Searches and lists the documents of an organization. | `documents:read` |
+| `get_document` | Returns a document with its tags and custom properties. | `documents:read` |
+| `read_document_content` | Reads the extracted text of a document, in slices. | `documents:read` |
+| `update_document` | Updates the name, text, date or notes of a document. | `documents:update` |
+| `upload_document` | Uploads a document from base64 encoded content. | `documents:create` |
+| `enrich_document` | Schedules auto-tagging of a document in the background. | `documents:update` |
+| `list_tags` | Lists the tags of an organization. | `tags:read` |
+| `create_tag` | Creates a tag. | `tags:create` |
+| `update_tag` | Updates a tag. | `tags:update` |
+| `delete_tag` | Deletes a tag and removes it from every document. | `tags:delete` |
+| `add_document_tag` | Adds a tag to a document. | `documents:update`, `tags:read` |
+| `remove_document_tag` | Removes a tag from a document. | `documents:update`, `tags:read` |
+| `list_custom_properties` | Lists the custom properties of an organization. | `custom-properties:read` |
+| `get_custom_property` | Returns a custom property with its options. | `custom-properties:read` |
+| `create_custom_property` | Creates a custom property. | `custom-properties:create` |
+| `update_custom_property` | Updates a custom property. | `custom-properties:update` |
+| `delete_custom_property` | Deletes a custom property. | `custom-properties:delete` |
+| `get_document_custom_properties` | Returns the custom property values of a document. | `documents:read`, `custom-properties:read` |
+| `set_document_custom_property` | Sets a custom property value on a document. | `documents:update`, `custom-properties:read` |
+| `delete_document_custom_property` | Clears a custom property value on a document. | `documents:update`, `custom-properties:read` |
+
+The permissions are the same as for API keys, see the [API endpoints](/resources/api-endpoints) page for the REST routes.
+
+## Behind a reverse proxy
+
+MCP clients can register themselves with your instance before the user signs in. To limit abuse, Papra allows a small number of registrations per hour for each client IP address, and a larger number for the whole instance.
+
+The per-IP limit takes the address from the first header present in the `AUTH_IP_ADDRESS_HEADERS` setting, which defaults to `x-forwarded-for`. If Papra runs behind a reverse proxy, set it to a header your proxy always sets or overwrites, so the clients cannot choose their own address:
+
+```bash
+# Behind a standard reverse proxy that sets x-forwarded-for
+AUTH_IP_ADDRESS_HEADERS=x-forwarded-for
+
+# Behind Cloudflare
+AUTH_IP_ADDRESS_HEADERS=cf-connecting-ip
+```
+
+<Aside type="caution">
+  If your proxy passes a client-supplied `X-Forwarded-For` header on unchanged, a client can send a different value with every request and bypass the per-IP limit. The instance-wide limit still applies. Make sure the proxy overwrites the header, or choose a header only your proxy sets.
+</Aside>

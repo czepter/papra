@@ -95,8 +95,22 @@ async function setupDatabase() {
   ]);
 
   await db.insert(oauthAccessTokensTable).values([
-    { id: 'access_ax', token: 'at-ax', clientId: 'client_x', userId: 'user_a', refreshId: 'refresh_ax_new', scopes: '[]' },
-    { id: 'access_bx', token: 'at-bx', clientId: 'client_x', userId: 'user_b', refreshId: 'refresh_bx', scopes: '[]' },
+    {
+      id: 'access_ax',
+      token: 'at-ax',
+      clientId: 'client_x',
+      userId: 'user_a',
+      refreshId: 'refresh_ax_new',
+      scopes: '[]',
+    },
+    {
+      id: 'access_bx',
+      token: 'at-bx',
+      clientId: 'client_x',
+      userId: 'user_b',
+      refreshId: 'refresh_bx',
+      scopes: '[]',
+    },
     { id: 'access_ay', token: 'at-ay', clientId: 'client_y', userId: 'user_a', scopes: '[]' },
   ]);
 
@@ -104,8 +118,13 @@ async function setupDatabase() {
 }
 
 async function readIds({ db }: { db: Awaited<ReturnType<typeof setupDatabase>>['db'] }) {
-  const ids = async (table: typeof oauthConsentsTable | typeof oauthRefreshTokensTable | typeof oauthAccessTokensTable | typeof oauthClientsTable) =>
-    (await db.select({ id: table.id }).from(table)).map(({ id }) => id).sort();
+  const ids = async (
+    table:
+      | typeof oauthConsentsTable
+      | typeof oauthRefreshTokensTable
+      | typeof oauthAccessTokensTable
+      | typeof oauthClientsTable,
+  ) => (await db.select({ id: table.id }).from(table)).map(({ id }) => id).sort();
 
   return {
     consents: await ids(oauthConsentsTable),
@@ -144,7 +163,9 @@ describe('mcp connected apps repository', () => {
         },
       ]);
 
-      const { connectedApps: appsOfB } = await repository.getUserConnectedApps({ userId: 'user_b' });
+      const { connectedApps: appsOfB } = await repository.getUserConnectedApps({
+        userId: 'user_b',
+      });
       expect(appsOfB.map(({ clientId }) => clientId)).to.eql(['client_x']);
       expect(appsOfB[0]?.scopes).to.eql(['documents:read']);
       expect(appsOfB[0]?.lastActiveAt).to.eql(new Date('2025-05-01'));
@@ -157,7 +178,9 @@ describe('mcp connected apps repository', () => {
 
       const { connectedApps } = await repository.getUserConnectedApps({ userId: 'user_a' });
 
-      expect(connectedApps.map(({ clientId, lastActiveAt }) => ({ clientId, lastActiveAt }))).to.eql([
+      expect(
+        connectedApps.map(({ clientId, lastActiveAt }) => ({ clientId, lastActiveAt })),
+      ).to.eql([
         { clientId: 'client_y', lastActiveAt: undefined },
         { clientId: 'client_x', lastActiveAt: undefined },
       ]);
@@ -165,17 +188,27 @@ describe('mcp connected apps repository', () => {
 
     test('a user without consent gets an empty list', async () => {
       const { db } = await setupDatabase();
-      const { connectedApps } = await createMcpConnectedAppsRepository({ db }).getUserConnectedApps({ userId: 'nobody' });
+      const { connectedApps } = await createMcpConnectedAppsRepository({ db }).getUserConnectedApps(
+        { userId: 'nobody' },
+      );
 
       expect(connectedApps).to.eql([]);
     });
 
     test('malformed stored values do not throw: scopes and redirect hosts fall back to empty', async () => {
-      const { db } = await createInMemoryDatabase({ users: [{ id: 'user_a', email: 'a@example.com' }] });
-      await db.insert(oauthClientsTable).values({ clientId: 'client_bad', name: '', redirectUris: '{broken' });
-      await db.insert(oauthConsentsTable).values({ clientId: 'client_bad', userId: 'user_a', scopes: 'nope' });
+      const { db } = await createInMemoryDatabase({
+        users: [{ id: 'user_a', email: 'a@example.com' }],
+      });
+      await db
+        .insert(oauthClientsTable)
+        .values({ clientId: 'client_bad', name: '', redirectUris: '{broken' });
+      await db
+        .insert(oauthConsentsTable)
+        .values({ clientId: 'client_bad', userId: 'user_a', scopes: 'nope' });
 
-      const { connectedApps } = await createMcpConnectedAppsRepository({ db }).getUserConnectedApps({ userId: 'user_a' });
+      const { connectedApps } = await createMcpConnectedAppsRepository({ db }).getUserConnectedApps(
+        { userId: 'user_a' },
+      );
 
       expect(connectedApps).to.have.length(1);
       expect(connectedApps[0]).toMatchObject({ clientName: null, redirectHosts: [], scopes: [] });
@@ -187,7 +220,10 @@ describe('mcp connected apps repository', () => {
       const { db } = await setupDatabase();
       const repository = createMcpConnectedAppsRepository({ db });
 
-      const { hasRevoked } = await repository.revokeUserConnectedApp({ userId: 'user_a', clientId: 'client_x' });
+      const { hasRevoked } = await repository.revokeUserConnectedApp({
+        userId: 'user_a',
+        clientId: 'client_x',
+      });
 
       expect(hasRevoked).to.eql(true);
       expect(await readIds({ db })).to.eql({
@@ -203,8 +239,12 @@ describe('mcp connected apps repository', () => {
       const before = await readIds({ db });
       const repository = createMcpConnectedAppsRepository({ db });
 
-      expect(await repository.revokeUserConnectedApp({ userId: 'user_b', clientId: 'client_y' })).to.eql({ hasRevoked: false });
-      expect(await repository.revokeUserConnectedApp({ userId: 'user_a', clientId: 'unknown' })).to.eql({ hasRevoked: false });
+      expect(
+        await repository.revokeUserConnectedApp({ userId: 'user_b', clientId: 'client_y' }),
+      ).to.eql({ hasRevoked: false });
+      expect(
+        await repository.revokeUserConnectedApp({ userId: 'user_a', clientId: 'unknown' }),
+      ).to.eql({ hasRevoked: false });
       expect(await readIds({ db })).to.eql(before);
     });
   });
@@ -214,7 +254,11 @@ describe('mcp connected apps repository', () => {
       const { db } = await setupDatabase();
       const mcpConnectedAppsRepository = createMcpConnectedAppsRepository({ db });
 
-      await revokeConnectedApp({ userId: 'user_a', clientId: 'client_x', mcpConnectedAppsRepository });
+      await revokeConnectedApp({
+        userId: 'user_a',
+        clientId: 'client_x',
+        mcpConnectedAppsRepository,
+      });
 
       await expect(
         revokeConnectedApp({ userId: 'user_a', clientId: 'client_x', mcpConnectedAppsRepository }),

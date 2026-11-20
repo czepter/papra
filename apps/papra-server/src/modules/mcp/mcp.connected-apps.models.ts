@@ -18,7 +18,11 @@ export function parseJsonStringArray({ value }: { value: string | null | undefin
   }
 }
 
-export function getRedirectHosts({ redirectUris }: { redirectUris: string | null | undefined }): string[] {
+export function getRedirectHosts({
+  redirectUris,
+}: {
+  redirectUris: string | null | undefined;
+}): string[] {
   const hosts = parseJsonStringArray({ value: redirectUris }).flatMap((uri) => {
     try {
       const { host } = new URL(uri);

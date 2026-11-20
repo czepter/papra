@@ -34,7 +34,9 @@ async function getUserConnectedApps({ db, userId }: { db: Database; userId: stri
   const lastActivity = await db
     .select({
       clientId: oauthRefreshTokensTable.clientId,
-      lastActiveAt: max(oauthRefreshTokensTable.createdAt).mapWith(oauthRefreshTokensTable.createdAt),
+      lastActiveAt: max(oauthRefreshTokensTable.createdAt).mapWith(
+        oauthRefreshTokensTable.createdAt,
+      ),
     })
     .from(oauthRefreshTokensTable)
     .where(eq(oauthRefreshTokensTable.userId, userId))
@@ -66,14 +68,16 @@ async function getUserConnectedApps({ db, userId }: { db: Database; userId: stri
 
     if (existing) {
       existing.scopes = [...new Set([...existing.scopes, ...scopes])];
-      existing.authorizedAt = authorizedAt < existing.authorizedAt ? authorizedAt : existing.authorizedAt;
+      existing.authorizedAt =
+        authorizedAt < existing.authorizedAt ? authorizedAt : existing.authorizedAt;
       existing.updatedAt = updatedAt > existing.updatedAt ? updatedAt : existing.updatedAt;
       continue;
     }
 
     connectedAppsByClientId.set(consent.clientId, {
       clientId: consent.clientId,
-      clientName: isNil(consent.clientName) || consent.clientName === '' ? null : consent.clientName,
+      clientName:
+        isNil(consent.clientName) || consent.clientName === '' ? null : consent.clientName,
       redirectHosts: getRedirectHosts({ redirectUris: consent.redirectUris }),
       scopes,
       authorizedAt,
@@ -108,12 +112,18 @@ async function revokeUserConnectedApp({
     db
       .delete(oauthAccessTokensTable)
       .where(
-        and(eq(oauthAccessTokensTable.clientId, clientId), eq(oauthAccessTokensTable.userId, userId)),
+        and(
+          eq(oauthAccessTokensTable.clientId, clientId),
+          eq(oauthAccessTokensTable.userId, userId),
+        ),
       ),
     db
       .delete(oauthRefreshTokensTable)
       .where(
-        and(eq(oauthRefreshTokensTable.clientId, clientId), eq(oauthRefreshTokensTable.userId, userId)),
+        and(
+          eq(oauthRefreshTokensTable.clientId, clientId),
+          eq(oauthRefreshTokensTable.userId, userId),
+        ),
       ),
     db
       .delete(oauthConsentsTable)

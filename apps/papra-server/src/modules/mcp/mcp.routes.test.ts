@@ -438,11 +438,17 @@ describe('mcp routes', () => {
     test('the oauth consent page cannot be framed under path variants either', async () => {
       const { app } = await setup({ config: { server: { servePublicDir: true } } });
 
-      for (const path of ['/oauth/consent/', '/oauth/consent/index.html', '/oauth/consent/x?client_id=x']) {
+      for (const path of [
+        '/oauth/consent/',
+        '/oauth/consent/index.html',
+        '/oauth/consent/x?client_id=x',
+      ]) {
         const response = await app.request(path);
 
         expect(response.headers.get('x-frame-options'), path).to.eql('DENY');
-        expect(response.headers.get('content-security-policy'), path).to.eql("frame-ancestors 'none'");
+        expect(response.headers.get('content-security-policy'), path).to.eql(
+          "frame-ancestors 'none'",
+        );
       }
     });
 
