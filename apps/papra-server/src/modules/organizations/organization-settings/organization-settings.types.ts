@@ -1,3 +1,4 @@
+import type { InboxMode } from '../../document-inbox/document-inbox.types';
 import type { organizationSettingsTable } from './organization-settings.tables';
 
 export type OrganizationSettings = {
@@ -9,6 +10,9 @@ export type OrganizationSettings = {
       modelId?: string;
     };
   };
+  inbox: {
+    mode: InboxMode;
+  };
 };
 
 export type DbUpdatableOrganizationSettings = Pick<
@@ -17,4 +21,5 @@ export type DbUpdatableOrganizationSettings = Pick<
   | 'aiAutoTaggingCanCreateNewTags'
   | 'aiAutoTaggingMaxTags'
   | 'aiAutoTaggingModelId'
+  | 'inboxMode'
 >;

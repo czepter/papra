@@ -1,5 +1,6 @@
 import type { ApiDependencies } from '../app/server.types';
 import { defineApiRoute } from '../api/api.routes';
+import { createDocumentInboxRepository } from '../document-inbox/document-inbox.repository';
 import { createDocumentActivityRepository } from '../documents/document-activity/document-activity.repository';
 import { deferRegisterDocumentActivityLog } from '../documents/document-activity/document-activity.usecases';
 import { createDocumentNotFoundError } from '../documents/documents.errors';
@@ -73,6 +74,13 @@ function setupAddTagToDocumentRoute({
         tagsRepository,
         webhookTriggerServices,
         documentActivityRepository,
+      });
+
+      // Manually adding a tag counts as reviewing the document (auto-tagging and tagging rules call addTagToDocument directly, not this route)
+      await createDocumentInboxRepository({ db }).markDocumentsAsReviewed({
+        organizationId,
+        documentIds: [documentId],
+        userId,
       });
 
       return { status: 204 };

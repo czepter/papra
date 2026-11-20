@@ -1,3 +1,4 @@
+import { DEFAULT_INBOX_MODE } from '../../document-inbox/document-inbox.constants';
 import type { Config } from '../../config/config.types';
 import type { OrganizationSettingsRepository } from './organization-settings.repository';
 import type { OrganizationSettings } from './organization-settings.types';
@@ -59,6 +60,9 @@ export async function resolveOrganizationSettings({
             config.autoTagging.modelId ??
             config.ai.defaultModelId,
         },
+      },
+      inbox: {
+        mode: organizationRawSettings?.inboxMode ?? DEFAULT_INBOX_MODE,
       },
     },
   };

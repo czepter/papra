@@ -7,6 +7,7 @@ import { registerDocumentViewsRoutes } from '../document-views/document-views.ro
 import { registerDocumentActivityRoutes } from '../documents/document-activity/document-activity.routes';
 import { registerDocumentsBatchRoutes } from '../documents/documents-batch/documents-batch.routes';
 import { registerDocumentsRoutes } from '../documents/documents.routes';
+import { registerDocumentInboxRoutes } from '../document-inbox/document-inbox.routes';
 import { registerDocumentsViewPreferencesRoutes } from '../documents-view-preferences/documents-view-preferences.routes';
 import { registerDocumentPreviewsRoutes } from '../document-previews/document-previews.routes';
 import { registerIntakeEmailsRoutes } from '../intake-emails/intake-emails.routes';
@@ -27,6 +28,8 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerOrganizationSettingsRoutes(context);
   // Before the documents routes: `documents/view-preferences` must not be captured by `documents/:documentId`
   registerDocumentsViewPreferencesRoutes(context);
+  // Same reason for `documents/inbox` and `documents/reviews`
+  registerDocumentInboxRoutes(context);
   registerDocumentsRoutes(context);
   registerDocumentsBatchRoutes(context);
   registerDocumentPreviewsRoutes(context);
