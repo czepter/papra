@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, For, Match, on, Show, Switch } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { createMarkAsReviewedOnView } from '@/modules/document-inbox/document-inbox.composables';
 import { cn } from '@/modules/shared/style/cn';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
 import { Button } from '@/modules/ui/components/button';
@@ -289,6 +290,8 @@ export const DocumentQuickLook: Component<{
   searchQuery: string;
   onDocumentChange: (documentId: string) => void;
   onClose: () => void;
+  // Inbox only: marks the document as done, the overlay then moves on to the next document (or closes after the last one)
+  onDone?: (document: Document) => void;
 }> = (props) => {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -319,6 +322,16 @@ export const DocumentQuickLook: Component<{
         }),
       enabled: props.documentId !== undefined && document !== undefined,
     };
+  });
+  // Looking at a document reviews it
+  createMarkAsReviewedOnView({
+    getTarget: () => {
+      const document = getDocument();
+
+      return props.documentId !== undefined && document !== undefined
+        ? { organizationId: document.organizationId, documentId: document.id }
+        : undefined;
+    },
   });
   const getContent = () => documentQuery.data?.document.content;
   const getMatchCount = () => countTermMatches({ text: getContent() ?? '', terms: getTerms() });
@@ -369,6 +382,22 @@ export const DocumentQuickLook: Component<{
     }
   }
 
+  function markCurrentDocumentDone() {
+    const document = getDocument();
+
+    if (!document || !props.onDone) {
+      return;
+    }
+
+    props.onDone(document);
+
+    if (getAdjacentDocument('next')) {
+      go('next');
+    } else {
+      props.onClose();
+    }
+  }
+
   function openDocument() {
     const document = getDocument();
 
@@ -407,6 +436,11 @@ export const DocumentQuickLook: Component<{
         } else {
           openDocument();
         }
+      }
+    } else if (key === 'e') {
+      if (props.onDone && shouldHandleShortcut({ context })) {
+        event.preventDefault();
+        markCurrentDocumentDone();
       }
     } else if (key === 't' || key === 'd') {
       if (shouldHandleShortcut({ context })) {
@@ -509,6 +543,17 @@ export const DocumentQuickLook: Component<{
 
                 <div class="hidden h-5 w-px bg-border sm:block" />
 
+                <Show when={props.onDone}>
+                  <Button
+                    variant="outline"
+                    class="size-8 p-0 sm:h-8 sm:w-auto sm:px-3 sm:text-xs"
+                    aria-label={t('inbox.actions.done')}
+                    onClick={markCurrentDocumentDone}
+                  >
+                    <div class="i-tabler-check size-4 sm:mr-1.5" />
+                    <span class="hidden sm:inline">{t('inbox.actions.done')}</span>
+                  </Button>
+                </Show>
                 <Button
                   variant="outline"
                   class="size-8 p-0 sm:h-8 sm:w-auto sm:px-3 sm:text-xs"
@@ -593,6 +638,12 @@ export const DocumentQuickLook: Component<{
                   <Kbd>D</Kbd>
                   {t('documents.quick-look.hints.date')}
                 </span>
+                <Show when={props.onDone}>
+                  <span class="flex items-center gap-1.5">
+                    <Kbd>E</Kbd>
+                    {t('inbox.quick-look.hints.done')}
+                  </span>
+                </Show>
                 <span class="flex items-center gap-1.5">
                   <Kbd>Enter</Kbd>
                   {t('documents.quick-look.hints.open')}

@@ -6,6 +6,7 @@ import { A, useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, on, Show } from 'solid-js';
 import { useConfig } from '@/modules/config/config.provider';
+import { useInboxCount } from '@/modules/document-inbox/document-inbox.composables';
 import { fetchDocumentViews } from '@/modules/document-views/document-views.services';
 import {
   DocumentUploadProvider,
@@ -82,6 +83,18 @@ const UpgradeCTAFooter: Component<{ organizationId: string }> = (props) => {
   );
 };
 
+const InboxCountBadge: Component<{ organizationId: string }> = (props) => {
+  const countQuery = useInboxCount({ getOrganizationId: () => props.organizationId });
+
+  return (
+    <Show when={(countQuery.data?.count ?? 0) > 0}>
+      <span class="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium leading-5 text-primary-foreground">
+        {(countQuery.data?.count ?? 0) > 99 ? '99+' : countQuery.data?.count}
+      </span>
+    </Show>
+  );
+};
+
 const OrganizationLayoutSideNav: Component = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -118,6 +131,12 @@ const OrganizationLayoutSideNav: Component = () => {
           label: t('layout.menu.home'),
           icon: 'i-tabler-home',
           href: `/organizations/${params.organizationId}`,
+        },
+        {
+          label: t('layout.menu.inbox'),
+          icon: 'i-tabler-inbox',
+          href: `/organizations/${params.organizationId}/inbox`,
+          badge: <InboxCountBadge organizationId={params.organizationId} />,
         },
         {
           label: t('layout.menu.documents'),

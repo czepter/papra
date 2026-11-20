@@ -382,6 +382,31 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     },
   }),
 
+  // There is no inbox in demo mode, every document is considered reviewed
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/inbox',
+    method: 'GET',
+    handler: async () => ({ documents: [], documentsCount: 0 }),
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/inbox/count',
+    method: 'GET',
+    handler: async () => ({ count: 0 }),
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/reviews',
+    method: 'POST',
+    handler: async () => undefined,
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/:documentId/review',
+    method: 'DELETE',
+    handler: async () => undefined,
+  }),
+
   ...defineHandler({
     path: '/api/organizations/:organizationId/documents/deleted',
     method: 'GET',
@@ -1601,6 +1626,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
               maxTags: 10,
             },
           },
+          inbox: { mode: 'shared' },
         },
       };
     },

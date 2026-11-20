@@ -269,6 +269,8 @@ export const DocumentsPaginatedList: Component<{
   focusedDocumentId?: string;
   // Opens the quick look overlay: from the thumbnails of the list and the eye button of the grid cards
   onQuickLook?: (document: Document) => void;
+  // Shows a "Done" control on the grid cards (inbox), the list gets its own column
+  onMarkDone?: (document: Document) => void;
 }> = (props) => {
   const { t } = useI18n();
   const table = createSolidTable({
@@ -425,6 +427,7 @@ export const DocumentsPaginatedList: Component<{
               enableSelection={props.enableBatchSelection}
               focusedDocumentId={props.focusedDocumentId}
               onQuickLook={props.onQuickLook}
+              onMarkDone={props.onMarkDone}
             />
           </Show>
 

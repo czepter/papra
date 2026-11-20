@@ -31,6 +31,7 @@ import { pendingOrganizationInvitationsUniqueMigration } from './list/0028-pendi
 import { documentPreviewsMigration } from './list/0029-document-previews.migration';
 import { documentsViewPreferencesMigration } from './list/0030-documents-view-preferences.migration';
 import { mcpOauthMigration } from './list/0031-mcp-oauth.migration';
+import { documentInboxMigration } from './list/0032-document-inbox.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -64,4 +65,5 @@ export const migrations: Migration[] = [
   documentPreviewsMigration,
   documentsViewPreferencesMigration,
   mcpOauthMigration,
+  documentInboxMigration,
 ];

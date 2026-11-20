@@ -14,5 +14,8 @@ export function formatOrganizationSettingsForApiResponse({
         'maxTags',
       ]),
     },
+    inbox: {
+      mode: organizationSettings.inbox.mode,
+    },
   };
 }

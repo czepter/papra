@@ -168,7 +168,7 @@ export async function tagDocumentsBatch({
       },
       'Executed batch document tag (no target documents)',
     );
-    return { taggedCount: 0, untaggedCount: 0, insertedPairs: [], removedPairs: [] };
+    return { taggedCount: 0, untaggedCount: 0, insertedPairs: [], removedPairs: [], documentIds };
   }
 
   const { insertedPairs, removedPairs } = await applyTagsToDocuments({
@@ -200,5 +200,6 @@ export async function tagDocumentsBatch({
     untaggedCount: removedPairs.length,
     insertedPairs,
     removedPairs,
+    documentIds,
   };
 }
