@@ -45,6 +45,8 @@ export function getAuth({
     secret,
     baseURL: serverBaseUrl,
     trustedOrigins,
+    // The jwt plugin's session-to-JWT endpoint (/token) is not used: access tokens come from /oauth2/token only
+    disabledPaths: ['/token'],
     logger: {
       disabled: false,
       log: (baseLevel, message, ...args: unknown[]) => {
