@@ -1,7 +1,15 @@
 import type { TranslationKeys } from '../i18n/locales.types';
+import type {
+  DocumentSearchCustomPropertySortField,
+  DocumentSearchSortField,
+} from './documents.constants';
 import type { DocumentActivityEvent } from './documents.types';
 import { IN_MS } from '../shared/utils/units';
-import { DEFAULT_DOCUMENT_ICON } from './documents.constants';
+import {
+  CUSTOM_PROPERTY_SORT_FIELD_PREFIX,
+  DEFAULT_DOCUMENT_ICON,
+  DOCUMENT_SEARCH_SORT_FIELDS,
+} from './documents.constants';
 
 export const fileIcons: { mimeTypes: string[]; extensions: string[]; icon: string }[] = [
   {
@@ -264,4 +272,30 @@ export function getDocumentOpenWithApps({
   return openWithApps
     .filter(({ mimeTypes }) => mimeTypes.includes(document.mimeType))
     .map(({ app }) => app);
+}
+
+export function getCustomPropertySortField({
+  key,
+}: {
+  key: string;
+}): DocumentSearchCustomPropertySortField {
+  return `${CUSTOM_PROPERTY_SORT_FIELD_PREFIX}${key}`;
+}
+
+export function getCustomPropertyKeyFromSortField({
+  field,
+}: {
+  field: string;
+}): string | undefined {
+  return field.startsWith(CUSTOM_PROPERTY_SORT_FIELD_PREFIX) &&
+    field.length > CUSTOM_PROPERTY_SORT_FIELD_PREFIX.length
+    ? field.slice(CUSTOM_PROPERTY_SORT_FIELD_PREFIX.length)
+    : undefined;
+}
+
+export function isDocumentSearchSortField(value: string): value is DocumentSearchSortField {
+  return (
+    (DOCUMENT_SEARCH_SORT_FIELDS as readonly string[]).includes(value) ||
+    getCustomPropertyKeyFromSortField({ field: value }) !== undefined
+  );
 }

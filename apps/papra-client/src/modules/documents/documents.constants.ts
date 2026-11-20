@@ -19,7 +19,14 @@ export const DOCUMENT_SEARCH_SORT_FIELDS = [
   'name',
   'documentDate',
 ] as const;
-export type DocumentSearchSortField = (typeof DOCUMENT_SEARCH_SORT_FIELDS)[number];
+
+// Sorts by a custom property value, identified by the property key
+export const CUSTOM_PROPERTY_SORT_FIELD_PREFIX = 'customProperty:';
+export type DocumentSearchCustomPropertySortField = `customProperty:${string}`;
+
+export type DocumentSearchSortField =
+  | (typeof DOCUMENT_SEARCH_SORT_FIELDS)[number]
+  | DocumentSearchCustomPropertySortField;
 
 export const DOCUMENT_SEARCH_SORT_ORDERS = ['asc', 'desc'] as const;
 export type DocumentSearchSortOrder = (typeof DOCUMENT_SEARCH_SORT_ORDERS)[number];

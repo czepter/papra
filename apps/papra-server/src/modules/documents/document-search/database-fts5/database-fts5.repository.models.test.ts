@@ -2,6 +2,7 @@ import type { SQL } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { stringifySqlQuery } from '../../../app/database/database.models';
 import { createInMemoryDatabase } from '../../../app/database/database.test-utils';
+import type { CustomPropertyDefinition } from './query-builder/query-builder.custom-properties';
 import { makeSearchOrderByClauses, makeSearchWhereClause } from './database-fts5.repository.models';
 
 describe('database-fts5 repository models', () => {
@@ -105,6 +106,38 @@ describe('database-fts5 repository models', () => {
       expect(
         toOrderByClause(makeSearchOrderByClauses({ sort: { field: 'updatedAt', order: 'asc' } })),
       ).to.eql('"documents"."updated_at" asc, "documents"."created_at" asc, "documents"."id" asc');
+    });
+
+    const senderDefinition = {
+      id: 'cpd_1',
+      organizationId: 'org_1',
+      name: 'Sender',
+      key: 'sender',
+      type: 'text',
+      displayOrder: 0,
+    } as CustomPropertyDefinition;
+
+    test('sort by a custom property puts documents without value last in both directions', () => {
+      for (const order of ['asc', 'desc'] as const) {
+        const clauses = makeSearchOrderByClauses({
+          sort: { field: 'customProperty:sender', order },
+          customPropertyDefinitions: [senderDefinition],
+        }).orderByClauses.map((clause) => stringifySqlQuery(clause).query);
+
+        expect(clauses[0]).to.match(/ is null asc$/);
+        expect(clauses.slice(2)).to.eql([
+          `"documents"."created_at" ${order}`,
+          `"documents"."id" ${order}`,
+        ]);
+      }
+    });
+
+    test('sort by an unknown custom property falls back to the default sort field', () => {
+      expect(
+        toOrderByClause(
+          makeSearchOrderByClauses({ sort: { field: 'customProperty:unknown', order: 'asc' } }),
+        ),
+      ).to.eql('"documents"."created_at" asc, "documents"."id" asc');
     });
   });
 });

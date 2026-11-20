@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 import { describe, expect, test } from 'vitest';
-import { updateDocumentBodySchema } from './documents.schemas';
+import { documentSearchSortFieldSchema, updateDocumentBodySchema } from './documents.schemas';
 
 describe('documents.schemas', () => {
   describe('updateDocumentBodySchema', () => {
@@ -64,6 +64,29 @@ describe('documents.schemas', () => {
       expect(() =>
         v.parse(updateDocumentBodySchema, { name: 'My Document', unknown: 'field' }),
       ).toThrow();
+    });
+  });
+
+  describe('documentSearchSortFieldSchema', () => {
+    test.each([
+      'createdAt',
+      'name',
+      'documentDate',
+      'customProperty:korrespondent',
+      'customProperty:amount2',
+    ])('accepts %s', (field) => {
+      expect(v.safeParse(documentSearchSortFieldSchema, field).success).toBe(true);
+    });
+
+    test.each([
+      '',
+      'unknown',
+      'customProperty:',
+      'customProperty:with space',
+      'customProperty:a;b',
+      'customproperty:key',
+    ])('rejects %j', (field) => {
+      expect(v.safeParse(documentSearchSortFieldSchema, field).success).toBe(false);
     });
   });
 });
