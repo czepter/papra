@@ -9,9 +9,11 @@ import { ensureUserIsInOrganization } from '../organizations/organizations.useca
 import { createError } from '../shared/errors/errors';
 import { isNil } from '../shared/utils';
 import { validateJsonBody, validateParams } from '../shared/validation/validation';
+import { createTaggingRuleNotFoundError } from './tagging-rules.errors';
 import { createTaggingRulesRepository } from './tagging-rules.repository';
 import { taggingRuleBodySchema, taggingRuleIdSchema } from './tagging-rules.schemas';
-import { createTaggingRule } from './tagging-rules.usecases';
+import { createTagsRepository } from '../tags/tags.repository';
+import { createTaggingRule, ensureTagsBelongToOrganization } from './tagging-rules.usecases';
 
 export function registerTaggingRulesRoutes(context: RouteDefinitionContext) {
   setupGetOrganizationTaggingRulesRoute(context);
@@ -74,13 +76,19 @@ function setupCreateTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
+      const { tagIds: uniqueTagIds } = await ensureTagsBelongToOrganization({
+        tagIds,
+        organizationId,
+        tagsRepository: createTagsRepository({ db }),
+      });
+
       await createTaggingRule({
         name,
         description,
         enabled,
         conditionMatchMode,
         conditions,
-        tagIds,
+        tagIds: uniqueTagIds,
         organizationId,
         taggingRulesRepository,
       });
@@ -142,6 +150,10 @@ function setupGetTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
         taggingRuleId,
       });
 
+      if (isNil(taggingRule)) {
+        throw createTaggingRuleNotFoundError();
+      }
+
       return context.json({
         taggingRule,
       });
@@ -172,10 +184,23 @@ function setupUpdateTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
+      const { tagIds: uniqueTagIds } = await ensureTagsBelongToOrganization({
+        tagIds,
+        organizationId,
+        tagsRepository: createTagsRepository({ db }),
+      });
+
       await taggingRulesRepository.updateOrganizationTaggingRule({
         organizationId,
         taggingRuleId,
-        taggingRule: { name, description, enabled, conditionMatchMode, conditions, tagIds },
+        taggingRule: {
+          name,
+          description,
+          enabled,
+          conditionMatchMode,
+          conditions,
+          tagIds: uniqueTagIds,
+        },
       });
 
       return context.body(null, 204);

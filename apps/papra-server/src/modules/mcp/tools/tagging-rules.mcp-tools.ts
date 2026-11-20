@@ -1,7 +1,5 @@
 import * as v from 'valibot';
 import { organizationIdSchema } from '../../organizations/organization.schemas';
-import { uniq } from '../../shared/utils';
-import { createTagNotFoundError } from '../../tags/tags.errors';
 import { createTagsRepository } from '../../tags/tags.repository';
 import {
   CONDITION_MATCH_MODES,
@@ -14,7 +12,10 @@ import {
   taggingRuleBodySchema,
   taggingRuleIdSchema,
 } from '../../tagging-rules/tagging-rules.schemas';
-import { createTaggingRule } from '../../tagging-rules/tagging-rules.usecases';
+import {
+  createTaggingRule,
+  ensureTagsBelongToOrganization,
+} from '../../tagging-rules/tagging-rules.usecases';
 import {
   ADDITIVE_ANNOTATIONS,
   defineMcpTool,
@@ -42,28 +43,6 @@ const operators = Object.values(TAGGING_RULE_OPERATORS).join(', ');
 const matchModes = Object.values(CONDITION_MATCH_MODES).join(' or ');
 
 const RULE_FORMAT = `A rule has a name, an optional description, an enabled flag, a conditionMatchMode (${matchModes}, default ${CONDITION_MATCH_MODES.ALL}), up to 10 conditions and the tagIds to add when it matches. A condition is {field, operator, value}: field is one of ${fields}, operator is one of ${operators}, comparisons ignore case. A rule without conditions matches every document. tagIds must be ids of existing tags of the same organization (see list_tags), at least one.`;
-
-// The REST routes rely on the foreign keys only, so a tag id of another organization would be
-// accepted there. A tool must not link a rule to a tag the caller cannot see.
-async function ensureTagsBelongToOrganization({
-  tagIds,
-  organizationId,
-  deps,
-}: {
-  tagIds: string[];
-  organizationId: string;
-  deps: McpToolDependencies;
-}) {
-  const tagsRepository = createTagsRepository({ db: deps.db });
-
-  const results = await Promise.all(
-    uniq(tagIds).map(async (tagId) => tagsRepository.getTagById({ tagId, organizationId })),
-  );
-
-  if (results.some(({ tag }) => !tag)) {
-    throw createTagNotFoundError();
-  }
-}
 
 async function getTaggingRuleOrThrow({
   organizationId,
@@ -125,7 +104,11 @@ export const createTaggingRuleTool = defineMcpTool({
     input: { organizationId, name, description, enabled, conditionMatchMode, conditions, tagIds },
     deps,
   }) => {
-    await ensureTagsBelongToOrganization({ tagIds, organizationId, deps });
+    const { tagIds: uniqueTagIds } = await ensureTagsBelongToOrganization({
+      tagIds,
+      organizationId,
+      tagsRepository: createTagsRepository({ db: deps.db }),
+    });
 
     const taggingRulesRepository = createTaggingRulesRepository({ db: deps.db });
 
@@ -137,7 +120,7 @@ export const createTaggingRuleTool = defineMcpTool({
       enabled,
       conditionMatchMode,
       conditions,
-      tagIds: uniq(tagIds),
+      tagIds: uniqueTagIds,
       organizationId,
       taggingRulesRepository,
     });
@@ -166,7 +149,11 @@ export const updateTaggingRuleTool = defineMcpTool({
     deps,
   }) => {
     await getTaggingRuleOrThrow({ organizationId, taggingRuleId, deps });
-    await ensureTagsBelongToOrganization({ tagIds, organizationId, deps });
+    const { tagIds: uniqueTagIds } = await ensureTagsBelongToOrganization({
+      tagIds,
+      organizationId,
+      tagsRepository: createTagsRepository({ db: deps.db }),
+    });
 
     const taggingRulesRepository = createTaggingRulesRepository({ db: deps.db });
 
@@ -179,7 +166,7 @@ export const updateTaggingRuleTool = defineMcpTool({
         enabled,
         conditionMatchMode,
         conditions,
-        tagIds: uniq(tagIds),
+        tagIds: uniqueTagIds,
       },
     });
 
