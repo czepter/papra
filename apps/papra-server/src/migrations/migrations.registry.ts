@@ -29,6 +29,7 @@ import { addIndexesMigration } from './list/0026-add-indexes.migration';
 import { aiCreditsMigration } from './list/0027-ai-credits.migration';
 import { pendingOrganizationInvitationsUniqueMigration } from './list/0028-pending-organization-invitations-unique.migration';
 import { documentPreviewsMigration } from './list/0029-document-previews.migration';
+import { documentsViewPreferencesMigration } from './list/0030-documents-view-preferences.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -60,4 +61,5 @@ export const migrations: Migration[] = [
   aiCreditsMigration,
   pendingOrganizationInvitationsUniqueMigration,
   documentPreviewsMigration,
+  documentsViewPreferencesMigration,
 ];

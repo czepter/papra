@@ -1,8 +1,10 @@
 import type { ApiKey } from '../api-keys/api-keys.types';
 import type { CustomPropertyDefinition } from '../custom-properties/custom-properties.types';
+import type { DocumentsViewPreferences } from '../documents/documents-view-preference.models';
 import type { Document } from '../documents/documents.types';
 import type { Webhook } from '../webhooks/webhooks.types';
 import type { DocumentCustomPropertyValueStorage, DocumentFile } from './demo.storage';
+import { defaultDocumentsViewPreferences } from '../documents/documents-view-preference.models';
 import { FetchError } from 'ofetch';
 import { createRouter } from 'radix3';
 import { get } from '../shared/utils/get';
@@ -191,6 +193,9 @@ async function resolveBatchTargetDocumentIds({
     documents: documentsWithTagsAndProperties as unknown as Document[],
   }).map((document) => document.id);
 }
+
+// Documents view preferences are kept in memory, per organization, for the demo session
+const demoDocumentsViewPreferences = new Map<string, DocumentsViewPreferences>();
 
 const inMemoryApiMock: Record<string, { handler: any }> = {
   ...defineHandler({
@@ -432,6 +437,27 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
           previewStatus: DEMO_DOCUMENT_PREVIEW_STATUS,
         },
       };
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/view-preferences',
+    method: 'GET',
+    handler: async ({ params: { organizationId } }) => ({
+      preferences:
+        demoDocumentsViewPreferences.get(organizationId) ?? defaultDocumentsViewPreferences,
+    }),
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/view-preferences',
+    method: 'PUT',
+    handler: async ({ params: { organizationId }, body }) => {
+      const preferences = get(body, ['preferences']) as DocumentsViewPreferences;
+
+      demoDocumentsViewPreferences.set(organizationId, preferences);
+
+      return { preferences };
     },
   }),
 

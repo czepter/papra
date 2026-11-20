@@ -16,10 +16,6 @@ export const defaultDocumentsViewPreferences: DocumentsViewPreferences = {
   tagViews: {},
 };
 
-function isDocumentsView(value: unknown): value is DocumentsView {
-  return DOCUMENTS_VIEWS.includes(value as DocumentsView);
-}
-
 export function normalizeTagKey({ tagName }: { tagName: string }) {
   return tagName.trim().toLowerCase();
 }
@@ -114,38 +110,4 @@ export function applyViewEverywhere({
   view: DocumentsView;
 }): DocumentsViewPreferences {
   return removeTagViewOverride({ preferences: { ...preferences, defaultView: view }, tagName });
-}
-
-export function parseStoredDocumentsViewPreferences({
-  raw,
-}: {
-  raw: string | null | undefined;
-}): DocumentsViewPreferences {
-  if (!raw) {
-    return defaultDocumentsViewPreferences;
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(raw);
-
-    if (typeof parsed !== 'object' || parsed === null) {
-      return defaultDocumentsViewPreferences;
-    }
-
-    const { defaultView, tagViews } = parsed as Record<string, unknown>;
-
-    return {
-      defaultView: isDocumentsView(defaultView) ? defaultView : DEFAULT_DOCUMENTS_VIEW,
-      tagViews:
-        typeof tagViews === 'object' && tagViews !== null
-          ? Object.fromEntries(
-              Object.entries(tagViews).filter((entry): entry is [string, DocumentsView] =>
-                isDocumentsView(entry[1]),
-              ),
-            )
-          : {},
-    };
-  } catch {
-    return defaultDocumentsViewPreferences;
-  }
 }
