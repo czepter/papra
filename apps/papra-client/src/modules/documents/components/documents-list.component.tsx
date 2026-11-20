@@ -277,6 +277,8 @@ export const DocumentsPaginatedList: Component<{
   view?: DocumentsView;
   // Document highlighted by the keyboard navigation
   focusedDocumentId?: string;
+  // Makes the custom property values links filtering the documents, receives the search term of the value
+  getCustomPropertyFilterHref?: (term: string) => string;
   // Opens the quick look overlay: from the thumbnails of the list and the eye button of the grid cards
   onQuickLook?: (document: Document) => void;
 }> = (props) => {
@@ -312,6 +314,7 @@ export const DocumentsPaginatedList: Component<{
     createCustomPropertyColumns({
       definitions: getCustomPropertyDefinitions(),
       labels: getCustomPropertyLabels(),
+      getFilterHref: props.getCustomPropertyFilterHref,
     }),
   );
   const getCustomPropertyColumnLabels = createMemo(() =>
@@ -492,6 +495,7 @@ export const DocumentsPaginatedList: Component<{
               enableSelection={props.enableBatchSelection}
               focusedDocumentId={props.focusedDocumentId}
               onQuickLook={props.onQuickLook}
+              getCustomPropertyFilterHref={props.getCustomPropertyFilterHref}
             />
           </Show>
 

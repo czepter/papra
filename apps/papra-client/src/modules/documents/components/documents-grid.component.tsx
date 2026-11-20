@@ -5,6 +5,7 @@ import { formatBytes } from '@corentinth/chisels';
 import { A } from '@solidjs/router';
 import { createMemo, For, Match, Show, Switch } from 'solid-js';
 import { useCustomPropertyDisplayLabels } from '@/modules/custom-properties/custom-properties.composables';
+import { CustomPropertyValueLinks } from '@/modules/custom-properties/components/custom-property-value-links.component';
 import { getDocumentCustomPropertyDisplayValues } from '@/modules/custom-properties/custom-property-display.models';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -91,6 +92,7 @@ const DocumentCard: Component<{
   isFocused: boolean;
   onToggleSelected: (value: boolean) => void;
   onQuickLook?: (document: Document) => void;
+  getCustomPropertyFilterHref?: (term: string) => string;
 }> = (props) => {
   const { t } = useI18n();
 
@@ -178,7 +180,14 @@ const DocumentCard: Component<{
               {(item) => (
                 <div class="truncate" title={`${item.name}: ${item.text}`}>
                   <dt class="inline">{item.name}: </dt>
-                  <dd class="inline text-foreground/80">{item.text}</dd>
+                  {/* Links sit above the stretched card link */}
+                  <dd class="inline text-foreground/80">
+                    <CustomPropertyValueLinks
+                      items={item.items}
+                      getFilterHref={props.getCustomPropertyFilterHref}
+                      class="relative z-10"
+                    />
+                  </dd>
                 </div>
               )}
             </For>
@@ -207,6 +216,7 @@ export const DocumentsGrid: Component<{
   // Document highlighted by the keyboard navigation
   focusedDocumentId?: string;
   onQuickLook?: (document: Document) => void;
+  getCustomPropertyFilterHref?: (term: string) => string;
 }> = (props) => {
   return (
     <div class="grid grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -219,6 +229,7 @@ export const DocumentsGrid: Component<{
             isFocused={props.focusedDocumentId === row.original.id}
             onToggleSelected={(value) => row.toggleSelected(value)}
             onQuickLook={props.onQuickLook}
+            getCustomPropertyFilterHref={props.getCustomPropertyFilterHref}
           />
         )}
       </For>

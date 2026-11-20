@@ -4,6 +4,7 @@ import { safely } from '@corentinth/chisels';
 import { useNavigate, useParams } from '@solidjs/router';
 import { keepPreviousData, useQuery } from '@tanstack/solid-query';
 import { createSignal, Show, Suspense } from 'solid-js';
+import { makeDocumentsFilterHref } from '@/modules/custom-properties/custom-property-filter.models';
 import { DocumentQuickLook } from '@/modules/documents/components/document-quick-look.component';
 import { DocumentsViewToggle } from '@/modules/documents/components/documents-view-toggle.component';
 import {
@@ -219,6 +220,13 @@ export const DocumentViewPage: Component = () => {
                     view={viewPreference.getView()}
                     focusedDocumentId={keyboardNavigation.getFocusedId()}
                     onQuickLook={openQuickLook}
+                    getCustomPropertyFilterHref={(term) =>
+                      makeDocumentsFilterHref({
+                        organizationId: params.organizationId,
+                        query: getViewQuery(),
+                        term,
+                      })
+                    }
                     extraColumns={[
                       tagsColumn,
                       documentDateColumn,

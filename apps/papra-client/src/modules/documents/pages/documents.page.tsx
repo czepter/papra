@@ -15,6 +15,7 @@ import { useDebounce } from '@/modules/shared/utils/timing';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { makeDocumentsFilterHref } from '@/modules/custom-properties/custom-property-filter.models';
 import { DocumentQuickLook } from '../components/document-quick-look.component';
 import { DocumentsViewToggle } from '../components/documents-view-toggle.component';
 import { DocumentUploadArea } from '../components/document-upload-area.component';
@@ -444,6 +445,13 @@ export const DocumentsPage: Component = () => {
               view={viewPreference.getView()}
               focusedDocumentId={keyboardNavigation.getFocusedId()}
               onQuickLook={openQuickLook}
+              getCustomPropertyFilterHref={(term) =>
+                makeDocumentsFilterHref({
+                  organizationId: params.organizationId,
+                  query: getSearchQuery(),
+                  term,
+                })
+              }
               extraColumns={[
                 tagsColumn,
                 documentDateColumn,
