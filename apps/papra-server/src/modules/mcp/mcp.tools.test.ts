@@ -35,6 +35,7 @@ const EXPECTED_PERMISSIONS: Record<string, ApiKeyPermissions[]> = {
   set_document_custom_property: ['documents:update', 'custom-properties:read'],
   delete_document_custom_property: ['documents:update', 'custom-properties:read'],
   enrich_document: ['documents:update'],
+  reprocess_document: ['documents:update'],
   list_tagging_rules: ['tagging-rules:read'],
   get_tagging_rule: ['tagging-rules:read'],
   create_tagging_rule: ['tagging-rules:create'],
@@ -103,6 +104,7 @@ const validArgs: Record<string, (organizationId: string) => Record<string, unkno
     documentId: ids.docA1,
     capabilities: ['auto-tagging'],
   }),
+  reprocess_document: (organizationId) => ({ organizationId, documentId: ids.docA1 }),
   list_tagging_rules: (organizationId) => ({ organizationId }),
   get_tagging_rule: (organizationId) => ({ organizationId, taggingRuleId: ids.ruleA1 }),
   create_tagging_rule: (organizationId) => ({
@@ -144,13 +146,13 @@ function describeEntries(schema: v.GenericSchema) {
 
 describe('mcp tools catalogue', () => {
   describe('catalogue', () => {
-    test('tools/list lists exactly the 28 tools of the catalogue', async () => {
+    test('tools/list lists exactly the 29 tools of the catalogue', async () => {
       const { listTools } = await setupMcpTest();
 
       const names = (await listTools()).map(({ name }) => name).sort();
 
       expect(names).to.eql(Object.keys(EXPECTED_PERMISSIONS).sort());
-      expect(names).to.have.length(28);
+      expect(names).to.have.length(29);
     });
 
     test('every tool requires exactly the permissions of its REST route', () => {
@@ -219,6 +221,7 @@ describe('mcp tools catalogue', () => {
         'create_custom_property',
         'add_document_tag',
         'enrich_document',
+        'reprocess_document',
         'create_tagging_rule',
         'apply_tagging_rule',
       ]) {
