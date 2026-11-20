@@ -962,6 +962,11 @@ export const translations: Partial<TranslationsDictionary> = {
     'Benutzerdefinierte Eigenschaften aktualisieren',
   'api-keys.permissions.custom-properties.custom-properties:delete':
     'Benutzerdefinierte Eigenschaften löschen',
+  'api-keys.permissions.tagging-rules.title': 'Tagging-Regeln',
+  'api-keys.permissions.tagging-rules.tagging-rules:create': 'Tagging-Regeln erstellen',
+  'api-keys.permissions.tagging-rules.tagging-rules:read': 'Tagging-Regeln lesen',
+  'api-keys.permissions.tagging-rules.tagging-rules:update': 'Tagging-Regeln aktualisieren',
+  'api-keys.permissions.tagging-rules.tagging-rules:delete': 'Tagging-Regeln löschen',
   'api-keys.create.title': 'API-Schlüssel erstellen',
   'api-keys.create.description':
     'Erstellen Sie einen neuen API-Schlüssel, um auf die Papra API zuzugreifen.',
@@ -1065,6 +1070,10 @@ export const translations: Partial<TranslationsDictionary> = {
   'oauth-consent.scopes.custom-properties:read': 'Ihre benutzerdefinierten Eigenschaften einsehen',
   'oauth-consent.scopes.custom-properties:update': 'Benutzerdefinierte Eigenschaften bearbeiten',
   'oauth-consent.scopes.custom-properties:delete': 'Benutzerdefinierte Eigenschaften löschen',
+  'oauth-consent.scopes.tagging-rules:create': 'Tagging-Regeln erstellen',
+  'oauth-consent.scopes.tagging-rules:read': 'Ihre Tagging-Regeln einsehen',
+  'oauth-consent.scopes.tagging-rules:update': 'Tagging-Regeln bearbeiten',
+  'oauth-consent.scopes.tagging-rules:delete': 'Tagging-Regeln löschen',
   'api-keys.list.title': 'API-Schlüssel',
   'api-keys.list.description': 'Verwalten Sie hier Ihre API-Schlüssel.',
   'api-keys.list.create': 'API-Schlüssel erstellen',

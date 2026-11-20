@@ -19,7 +19,7 @@ describe('oauth models', () => {
         expect(en[key as keyof typeof en], `en ${key}`).toEqual(expect.any(String));
         expect(de[key as keyof typeof de], `de ${key}`).toEqual(expect.any(String));
       }
-      expect(API_KEY_PERMISSIONS_VALUES).toHaveLength(16);
+      expect(API_KEY_PERMISSIONS_VALUES).toHaveLength(20);
     });
 
     test('offline access has a label too', () => {
@@ -101,12 +101,12 @@ describe('oauth models', () => {
       ]);
     });
 
-    test('the sixteen permissions and offline access all end up in a group', () => {
+    test('the twenty permissions and offline access all end up in a group', () => {
       const groups = getScopeGroups({
         scope: [...API_KEY_PERMISSIONS_VALUES, 'offline_access'].join(' '),
       });
 
-      expect(groups.flatMap(({ scopes }) => scopes)).toHaveLength(17);
+      expect(groups.flatMap(({ scopes }) => scopes)).toHaveLength(21);
     });
   });
 
@@ -158,7 +158,7 @@ describe('oauth models', () => {
       }
       expect(
         API_KEY_PERMISSIONS_VALUES.filter((scope) => isDestructiveScope({ scope })),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
     });
 
     test('offline access, unknown scopes and look-alikes are not destructive', () => {

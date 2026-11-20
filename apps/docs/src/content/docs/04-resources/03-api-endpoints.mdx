@@ -66,6 +66,12 @@ When creating an API key, you can select from the following permissions:
 - `tags:update` - Update tag details
 - `tags:delete` - Delete tags
 
+**Tagging rules:**
+- `tagging-rules:create` - Create tagging rules
+- `tagging-rules:read` - Read tagging rules
+- `tagging-rules:update` - Update tagging rules
+- `tagging-rules:delete` - Delete tagging rules
+
 ## Endpoints
 
 ### Check current API key
@@ -327,13 +333,62 @@ Remove a tag from a document.
 - Required API key permissions: `tags:read` and `documents:update`
 - Response: empty (204 status code)
 
+### List tagging rules
+
+**GET** `/api/organizations/:organizationId/tagging-rules`
+
+List the tagging rules of the organization, with their conditions and the tags they add.
+
+- Required API key permissions: `tagging-rules:read`
+- Response (JSON)
+  - `taggingRules`: The list of tagging rules.
+
+### Get a tagging rule
+
+**GET** `/api/organizations/:organizationId/tagging-rules/:taggingRuleId`
+
+- Required API key permissions: `tagging-rules:read`
+- Response (JSON)
+  - `taggingRule`: The tagging rule.
+
+### Create a tagging rule
+
+**POST** `/api/organizations/:organizationId/tagging-rules`
+
+- Required API key permissions: `tagging-rules:create`
+- Body
+  - `name`: The name of the rule (1 to 64 characters).
+  - `description`: Optional description.
+  - `enabled`: Optional, whether the rule is active.
+  - `conditionMatchMode`: Optional, `all` or `any`.
+  - `conditions`: Up to 10 conditions, each with a `field` (`name` or `content`), an `operator` (`equal`, `not_equal`, `contains`, `not_contains`, `starts_with`, `ends_with`) and a `value`.
+  - `tagIds`: The ids of the tags to add when the rule matches, at least one.
+- Response: empty (204 status code)
+
+### Update a tagging rule
+
+**PUT** `/api/organizations/:organizationId/tagging-rules/:taggingRuleId`
+
+Replace a tagging rule, the conditions and tags you send replace the existing ones.
+
+- Required API key permissions: `tagging-rules:update`
+- Body: same as when creating a tagging rule
+- Response: empty (204 status code)
+
+### Delete a tagging rule
+
+**DELETE** `/api/organizations/:organizationId/tagging-rules/:taggingRuleId`
+
+- Required API key permissions: `tagging-rules:delete`
+- Response: empty (204 status code)
+
 ### Apply tagging rule to existing documents
 
 **POST** `/api/organizations/:organizationId/tagging-rules/:taggingRuleId/apply`
 
 Enqueue a background task to apply a tagging rule to all existing documents in the organization. This endpoint returns immediately with a task ID, and the processing happens asynchronously in the background. The task will check all documents and apply tags where the rule's conditions match.
 
-- Required API key permissions: `tags:read` and `documents:update`
+- Required API key permissions: `tagging-rules:read` and `documents:update`
 - Response (JSON, HTTP 202)
   - `taskId`: The ID of the background task. You can use this to track the task's progress (task status retrieval coming in a future release).
 

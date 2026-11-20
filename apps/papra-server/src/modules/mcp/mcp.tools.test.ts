@@ -35,6 +35,12 @@ const EXPECTED_PERMISSIONS: Record<string, ApiKeyPermissions[]> = {
   set_document_custom_property: ['documents:update', 'custom-properties:read'],
   delete_document_custom_property: ['documents:update', 'custom-properties:read'],
   enrich_document: ['documents:update'],
+  list_tagging_rules: ['tagging-rules:read'],
+  get_tagging_rule: ['tagging-rules:read'],
+  create_tagging_rule: ['tagging-rules:create'],
+  update_tagging_rule: ['tagging-rules:update'],
+  delete_tagging_rule: ['tagging-rules:delete'],
+  apply_tagging_rule: ['tagging-rules:read', 'documents:update'],
 };
 
 // Arguments that pass the validation of each tool, for the organization given
@@ -97,6 +103,23 @@ const validArgs: Record<string, (organizationId: string) => Record<string, unkno
     documentId: ids.docA1,
     capabilities: ['auto-tagging'],
   }),
+  list_tagging_rules: (organizationId) => ({ organizationId }),
+  get_tagging_rule: (organizationId) => ({ organizationId, taggingRuleId: ids.ruleA1 }),
+  create_tagging_rule: (organizationId) => ({
+    organizationId,
+    name: 'New rule',
+    conditions: [],
+    tagIds: [ids.tagA1],
+  }),
+  update_tagging_rule: (organizationId) => ({
+    organizationId,
+    taggingRuleId: ids.ruleA1,
+    name: 'Renamed rule',
+    conditions: [],
+    tagIds: [ids.tagA1],
+  }),
+  delete_tagging_rule: (organizationId) => ({ organizationId, taggingRuleId: ids.ruleA1 }),
+  apply_tagging_rule: (organizationId) => ({ organizationId, taggingRuleId: ids.ruleA1 }),
 };
 
 const organizationScopedTools = Object.keys(EXPECTED_PERMISSIONS).filter(
@@ -121,13 +144,13 @@ function describeEntries(schema: v.GenericSchema) {
 
 describe('mcp tools catalogue', () => {
   describe('catalogue', () => {
-    test('tools/list lists exactly the 22 tools of the catalogue', async () => {
+    test('tools/list lists exactly the 28 tools of the catalogue', async () => {
       const { listTools } = await setupMcpTest();
 
       const names = (await listTools()).map(({ name }) => name).sort();
 
       expect(names).to.eql(Object.keys(EXPECTED_PERMISSIONS).sort());
-      expect(names).to.have.length(22);
+      expect(names).to.have.length(28);
     });
 
     test('every tool requires exactly the permissions of its REST route', () => {
@@ -164,6 +187,8 @@ describe('mcp tools catalogue', () => {
         'list_custom_properties',
         'get_custom_property',
         'get_document_custom_properties',
+        'list_tagging_rules',
+        'get_tagging_rule',
       ]) {
         expect(tools[name]!.readOnlyHint, name).to.eql(true);
       }
@@ -173,6 +198,7 @@ describe('mcp tools catalogue', () => {
         'delete_custom_property',
         'remove_document_tag',
         'delete_document_custom_property',
+        'delete_tagging_rule',
       ]) {
         expect(tools[name], name).to.include({ readOnlyHint: false, destructiveHint: true });
       }
@@ -182,6 +208,7 @@ describe('mcp tools catalogue', () => {
         'update_tag',
         'update_custom_property',
         'set_document_custom_property',
+        'update_tagging_rule',
       ]) {
         expect(tools[name], name).to.include({ readOnlyHint: false, idempotentHint: true });
       }
@@ -192,6 +219,8 @@ describe('mcp tools catalogue', () => {
         'create_custom_property',
         'add_document_tag',
         'enrich_document',
+        'create_tagging_rule',
+        'apply_tagging_rule',
       ]) {
         expect(tools[name], name).to.include({ readOnlyHint: false, destructiveHint: false });
       }

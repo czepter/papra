@@ -182,8 +182,29 @@ async function updateOrganizationTaggingRule({
 }) {
   const { name, description, enabled, conditionMatchMode, conditions, tagIds } = taggingRule;
 
-  await db.transaction(async (tx) => {
-    const [updatedTaggingRule] = await tx
+  // The rule must belong to the organization before any of its conditions or actions is touched
+  const [existingTaggingRule] = await db
+    .select({ id: taggingRulesTable.id })
+    .from(taggingRulesTable)
+    .where(
+      and(
+        eq(taggingRulesTable.id, taggingRuleId),
+        eq(taggingRulesTable.organizationId, organizationId),
+      ),
+    );
+
+  if (!existingTaggingRule) {
+    throw createError({
+      statusCode: 404,
+      message: 'Tagging rule not found',
+      code: 'tagging-rules.not-found',
+    });
+  }
+
+  // db.batch runs the statements in one transaction on a single connection (and, unlike
+  // db.transaction, works with the in-memory test database). Conditions and actions are recreated.
+  await db.batch([
+    db
       .update(taggingRulesTable)
       .set(omitUndefined({ name, description, enabled, conditionMatchMode }))
       .where(
@@ -191,35 +212,22 @@ async function updateOrganizationTaggingRule({
           eq(taggingRulesTable.id, taggingRuleId),
           eq(taggingRulesTable.organizationId, organizationId),
         ),
-      )
-      .returning();
-
-    if (!updatedTaggingRule) {
-      throw createError({
-        statusCode: 404,
-        message: 'Tagging rule not found',
-        code: 'tagging-rules.not-found',
-      });
-    }
-
-    // Recreate conditions
-    await tx
+      ),
+    db
       .delete(taggingRuleConditionsTable)
-      .where(eq(taggingRuleConditionsTable.taggingRuleId, taggingRuleId));
-    if (conditions.length > 0) {
-      await tx
-        .insert(taggingRuleConditionsTable)
-        .values(conditions.map((condition) => ({ ...condition, taggingRuleId })));
-    }
-
-    // Recreate actions
-    await tx
+      .where(eq(taggingRuleConditionsTable.taggingRuleId, taggingRuleId)),
+    ...(conditions.length > 0
+      ? [
+          db
+            .insert(taggingRuleConditionsTable)
+            .values(conditions.map((condition) => ({ ...condition, taggingRuleId }))),
+        ]
+      : []),
+    db
       .delete(taggingRuleActionsTable)
-      .where(eq(taggingRuleActionsTable.taggingRuleId, taggingRuleId));
-    await tx
-      .insert(taggingRuleActionsTable)
-      .values(tagIds.map((tagId) => ({ taggingRuleId, tagId })));
-  });
+      .where(eq(taggingRuleActionsTable.taggingRuleId, taggingRuleId)),
+    db.insert(taggingRuleActionsTable).values(tagIds.map((tagId) => ({ taggingRuleId, tagId }))),
+  ]);
 }
 
 async function createTaggingRuleConditions({

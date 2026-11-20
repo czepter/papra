@@ -27,6 +27,15 @@ import {
   updateTagTool,
 } from './tools/tags.mcp-tools';
 
+import {
+  applyTaggingRuleTool,
+  createTaggingRuleTool,
+  deleteTaggingRuleTool,
+  getTaggingRuleTool,
+  listTaggingRulesTool,
+  updateTaggingRuleTool,
+} from './tools/tagging-rules.mcp-tools';
+
 // Every tool is one entry. The permission check, the argument parsing, the organization membership
 // check and the error mapping are done for all of them by executeMcpTool in mcp.tools.ts.
 export const mcpTools: McpToolDefinition[] = [
@@ -52,4 +61,10 @@ export const mcpTools: McpToolDefinition[] = [
   setDocumentCustomPropertyTool,
   deleteDocumentCustomPropertyTool,
   enrichDocumentTool,
+  listTaggingRulesTool,
+  getTaggingRuleTool,
+  createTaggingRuleTool,
+  updateTaggingRuleTool,
+  deleteTaggingRuleTool,
+  applyTaggingRuleTool,
 ];

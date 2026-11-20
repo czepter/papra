@@ -6,7 +6,7 @@ slug: guides/connect-mcp-client
 
 import { Aside } from '@astrojs/starlight/components';
 
-Papra ships with a Model Context Protocol (MCP) server. An MCP client, such as an AI assistant, can connect to it to search your documents, read their text, manage tags and custom properties, and upload new documents on your behalf. This guide explains how to connect a client, which tools it gets, and what to know when you host Papra behind a reverse proxy.
+Papra ships with a Model Context Protocol (MCP) server. An MCP client, such as an AI assistant, can connect to it to search your documents, read their text, manage tags, tagging rules and custom properties, and upload new documents on your behalf. This guide explains how to connect a client, which tools it gets, and what to know when you host Papra behind a reverse proxy.
 
 ## Server URL
 
@@ -95,6 +95,12 @@ Each tool needs the permissions listed below, the same ones as the matching REST
 | `delete_tag` | Deletes a tag and removes it from every document. | `tags:delete` |
 | `add_document_tag` | Adds a tag to a document. | `documents:update`, `tags:read` |
 | `remove_document_tag` | Removes a tag from a document. | `documents:update`, `tags:read` |
+| `list_tagging_rules` | Lists the tagging rules of an organization. | `tagging-rules:read` |
+| `get_tagging_rule` | Returns a tagging rule with its conditions and tags. | `tagging-rules:read` |
+| `create_tagging_rule` | Creates a tagging rule. | `tagging-rules:create` |
+| `update_tagging_rule` | Replaces a tagging rule. | `tagging-rules:update` |
+| `delete_tagging_rule` | Deletes a tagging rule. | `tagging-rules:delete` |
+| `apply_tagging_rule` | Applies a tagging rule to the existing documents in the background. | `tagging-rules:read`, `documents:update` |
 | `list_custom_properties` | Lists the custom properties of an organization. | `custom-properties:read` |
 | `get_custom_property` | Returns a custom property with its options. | `custom-properties:read` |
 | `create_custom_property` | Creates a custom property. | `custom-properties:create` |

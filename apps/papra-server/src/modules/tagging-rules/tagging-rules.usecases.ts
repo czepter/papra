@@ -62,6 +62,8 @@ export async function createTaggingRule({
       taggingRulesRepository.createTaggingRuleConditions({ taggingRuleId, conditions }),
     taggingRulesRepository.createTaggingRuleActions({ taggingRuleId, tagIds }),
   ]);
+
+  return { taggingRule };
 }
 
 /**

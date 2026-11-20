@@ -12,6 +12,11 @@ import { customPropertySelectOptionsTable } from '../custom-properties/options/c
 import { documentsTable } from '../documents/documents.table';
 import { organizationMembersTable } from '../organizations/organizations.table';
 import { documentsTagsTable, tagsTable } from '../tags/tags.table';
+import {
+  taggingRuleActionsTable,
+  taggingRuleConditionsTable,
+  taggingRulesTable,
+} from '../tagging-rules/tagging-rules.tables';
 import { overrideConfig } from '../config/config.test-utils';
 import type { ApiKeyPermissions } from '../api-keys/api-keys.types';
 import type { GlobalDependencies } from '../app/server.types';
@@ -33,6 +38,8 @@ export const ids = {
   tagA1: testId('tag', 'tagaone'),
   tagA2: testId('tag', 'tagatwo'),
   tagB1: testId('tag', 'tagbone'),
+  ruleA1: testId('tr', 'ruleaone'),
+  ruleB1: testId('tr', 'rulebone'),
   // Property definitions of organization A, one per type
   propText: testId('cpd', 'proptext'),
   propNumber: testId('cpd', 'propnumber'),
@@ -234,6 +241,18 @@ export async function setupMcpTest({
   ]);
 
   await db.insert(documentsTagsTable).values({ documentId: ids.docA1, tagId: ids.tagA1 });
+  await db.insert(taggingRulesTable).values([
+    { id: ids.ruleA1, organizationId: ids.orgA, name: 'Invoices', conditionMatchMode: 'all' },
+    { id: ids.ruleB1, organizationId: ids.orgB, name: 'Secrets', conditionMatchMode: 'all' },
+  ]);
+  await db.insert(taggingRuleConditionsTable).values([
+    { taggingRuleId: ids.ruleA1, field: 'name', operator: 'contains', value: 'invoice' },
+    { taggingRuleId: ids.ruleB1, field: 'name', operator: 'contains', value: 'secret' },
+  ]);
+  await db.insert(taggingRuleActionsTable).values([
+    { taggingRuleId: ids.ruleA1, tagId: ids.tagA1 },
+    { taggingRuleId: ids.ruleB1, tagId: ids.tagB1 },
+  ]);
   await db.insert(documentCustomPropertyValuesTable).values({
     documentId: ids.docA1,
     propertyDefinitionId: ids.propText,
@@ -368,6 +387,9 @@ export async function snapshotDatabase({ db }: { db: Database }) {
     customPropertySelectOptionsTable,
     documentCustomPropertyValuesTable,
     organizationMembersTable,
+    taggingRulesTable,
+    taggingRuleConditionsTable,
+    taggingRuleActionsTable,
   ];
 
   const rows = await Promise.all(tables.map(async (table) => db.select().from(table)));
