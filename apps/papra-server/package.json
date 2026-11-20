@@ -47,6 +47,7 @@
   "dependencies": {
     "@azure/storage-blob": "^12.27.0",
     "@better-auth/expo": "catalog:",
+    "@better-auth/oauth-provider": "catalog:",
     "@cadence-mq/core": "^0.2.1",
     "@cadence-mq/driver-libsql": "^0.2.4",
     "@cadence-mq/driver-memory": "^0.2.0",
