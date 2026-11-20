@@ -2,6 +2,7 @@ import type { Database } from '../../app/database/database.types';
 import type { Config } from '../../config/config.types';
 import type { StorageService } from '../../storage/storage.services';
 import type { TaskServices } from '../../tasks/tasks.services';
+import { createDocumentPreviewsRepository } from '../../document-previews/document-previews.repository';
 import { createDocumentsRepository } from '../../documents/documents.repository';
 import { createLogger } from '../../shared/logger/logger';
 import { createOrganizationsRepository } from '../organizations.repository';
@@ -33,6 +34,7 @@ export async function registerPurgeExpiredOrganizationsTask({
         await purgeExpiredSoftDeletedOrganizations({
           organizationsRepository,
           documentsRepository,
+          documentPreviewsRepository: createDocumentPreviewsRepository({ db }),
           documentsStorageService,
           logger,
         });

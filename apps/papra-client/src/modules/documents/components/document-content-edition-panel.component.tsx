@@ -20,7 +20,7 @@ export const DocumentContentEditionPanel: Component<{ document: Document }> = (p
   const queryClient = useQueryClient();
 
   const [isEditing, setIsEditing] = createSignal(false);
-  const [getContent, setContent] = createSignal(props.document.content);
+  const [getContent, setContent] = createSignal(props.document.content ?? '');
 
   const updateMutation = useMutation(() => ({
     mutationFn: async ({ content }: { content: string }) =>
@@ -42,13 +42,13 @@ export const DocumentContentEditionPanel: Component<{ document: Document }> = (p
   }));
 
   const handleEdit = () => {
-    setContent(props.document.content);
+    setContent(props.document.content ?? '');
     setIsEditing(true);
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    setContent(props.document.content);
+    setContent(props.document.content ?? '');
   };
 
   const handleSave = () => {

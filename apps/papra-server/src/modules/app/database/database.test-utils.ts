@@ -9,6 +9,8 @@ import {
 } from '../../custom-properties/custom-properties.table';
 import { customPropertySelectOptionsTable } from '../../custom-properties/options/custom-properties-options.table';
 import { documentShareLinksTable } from '../../document-share-links/document-share-links.table';
+import { documentPreviewsTable } from '../../document-previews/document-previews.table';
+import { documentsViewPreferencesTable } from '../../documents-view-preferences/documents-view-preferences.table';
 import { documentsTable } from '../../documents/documents.table';
 import { intakeEmailsTable } from '../../intake-emails/intake-emails.tables';
 import {
@@ -62,7 +64,9 @@ const seedTables = {
   customPropertyDefinitions: customPropertyDefinitionsTable,
   customPropertySelectOptions: customPropertySelectOptionsTable,
   documentCustomPropertyValues: documentCustomPropertyValuesTable,
+  documentPreviews: documentPreviewsTable,
   documents: documentsTable,
+  documentsViewPreferences: documentsViewPreferencesTable,
   documentShareLinks: documentShareLinksTable,
   documentsTags: documentsTagsTable,
   intakeEmails: intakeEmailsTable,

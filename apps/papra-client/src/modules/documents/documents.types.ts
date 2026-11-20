@@ -2,6 +2,7 @@ import type { DocumentCustomProperty } from '../custom-properties/custom-propert
 import type { Tag } from '../tags/tags.types';
 import type { User } from '../users/users.types';
 import type { DOCUMENT_ACTIVITY_EVENTS } from './documents.constants';
+import type { DocumentPreviewStatus } from './document-previews.models';
 
 export type Document = {
   id: string;
@@ -15,10 +16,15 @@ export type Document = {
   isDeleted?: boolean;
   deletedAt?: Date;
   deletedBy?: string;
-  content: string;
+  // Only returned when a single document is fetched, lists carry `contentExcerpt` instead
+  content?: string;
+  // First characters of the extracted content, returned by the documents lists
+  contentExcerpt?: string;
   notes?: string;
   tags: Tag[];
   customProperties?: DocumentCustomProperty[];
+  // Not returned by the create and update endpoints, a missing status is treated as pending
+  previewStatus?: DocumentPreviewStatus;
 };
 
 export type DocumentActivityEvent =

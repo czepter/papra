@@ -75,7 +75,12 @@ describe('documents e2e', () => {
         document: Document;
       };
 
-      expect(retrievedDocument).to.eql({ ...document, tags: [], customProperties: [] });
+      expect(retrievedDocument).to.eql({
+        ...document,
+        tags: [],
+        customProperties: [],
+        previewStatus: 'unsupported',
+      });
 
       // Retrieve the document file
       const getDocumentFileResponse = await app.request(
@@ -280,7 +285,12 @@ describe('documents e2e', () => {
           document: Document;
         };
 
-        expect(retrievedDocument).to.eql({ ...document, tags: [], customProperties: [] });
+        expect(retrievedDocument).to.eql({
+          ...document,
+          tags: [],
+          customProperties: [],
+          previewStatus: 'unsupported',
+        });
       }
     });
 

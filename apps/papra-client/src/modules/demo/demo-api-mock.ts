@@ -1,8 +1,10 @@
 import type { ApiKey } from '../api-keys/api-keys.types';
 import type { CustomPropertyDefinition } from '../custom-properties/custom-properties.types';
+import type { DocumentsViewPreferences } from '../documents/documents-view-preference.models';
 import type { Document } from '../documents/documents.types';
 import type { Webhook } from '../webhooks/webhooks.types';
 import type { DocumentCustomPropertyValueStorage, DocumentFile } from './demo.storage';
+import { defaultDocumentsViewPreferences } from '../documents/documents-view-preference.models';
 import { FetchError } from 'ofetch';
 import { createRouter } from 'radix3';
 import { get } from '../shared/utils/get';
@@ -25,6 +27,9 @@ import { findMany, getValues } from './demo.storage.models';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
 import { demoUser } from './seed/users.fixtures';
 import { stringify } from '@papra/std';
+
+// Demo documents have no generated previews
+const DEMO_DOCUMENT_PREVIEW_STATUS = 'unsupported' as const;
 
 function assert(
   condition: unknown,
@@ -189,6 +194,9 @@ async function resolveBatchTargetDocumentIds({
   }).map((document) => document.id);
 }
 
+// Documents view preferences are kept in memory, per organization, for the demo session
+const demoDocumentsViewPreferences = new Map<string, DocumentsViewPreferences>();
+
 const inMemoryApiMock: Record<string, { handler: any }> = {
   ...defineHandler({
     path: '/api/config',
@@ -325,6 +333,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
           ...document,
           tags,
           customProperties,
+          previewStatus: DEMO_DOCUMENT_PREVIEW_STATUS,
         };
       });
 
@@ -362,7 +371,11 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
         .slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
       return {
-        documents: paginatedDocuments,
+        // Like the server, lists carry an excerpt of the content instead of the full text
+        documents: paginatedDocuments.map(({ content, ...document }) => ({
+          ...document,
+          contentExcerpt: (content ?? '').slice(0, 300),
+        })),
         documentsCount: filteredDocuments.length,
       };
     },
@@ -382,7 +395,10 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       );
 
       return {
-        documents: deletedDocuments,
+        documents: deletedDocuments.map((document) => ({
+          ...document,
+          previewStatus: DEMO_DOCUMENT_PREVIEW_STATUS,
+        })),
         documentsCount: deletedDocuments.length,
       };
     },
@@ -418,8 +434,39 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
           ...document,
           tags,
           customProperties,
+          previewStatus: DEMO_DOCUMENT_PREVIEW_STATUS,
         },
       };
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/view-preferences',
+    method: 'GET',
+    handler: async ({ params: { organizationId } }) => ({
+      preferences:
+        demoDocumentsViewPreferences.get(organizationId) ?? defaultDocumentsViewPreferences,
+    }),
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/view-preferences',
+    method: 'PUT',
+    handler: async ({ params: { organizationId }, body }) => {
+      const preferences = get(body, ['preferences']) as DocumentsViewPreferences;
+
+      demoDocumentsViewPreferences.set(organizationId, preferences);
+
+      return { preferences };
+    },
+  }),
+
+  // There is no preview generation in demo mode, documents get the file type tile
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/:documentId/previews/:variant',
+    method: 'GET',
+    handler: async () => {
+      assert(false, { status: 404, message: 'document.preview_unsupported' });
     },
   }),
 
