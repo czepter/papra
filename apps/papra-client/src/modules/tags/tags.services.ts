@@ -103,3 +103,48 @@ export async function removeTagFromDocument({
     method: 'DELETE',
   });
 }
+
+export async function fetchPinnedTags({ organizationId }: { organizationId: string }) {
+  const { pinnedTags } = await apiClient<{ pinnedTags: AsDto<Tag>[] }>({
+    path: `/api/organizations/${organizationId}/tags/pinned`,
+    method: 'GET',
+  });
+
+  return {
+    pinnedTags: pinnedTags.map(coerceDates),
+  };
+}
+
+export async function pinTag({ organizationId, tagId }: { organizationId: string; tagId: string }) {
+  await apiClient({
+    path: `/api/organizations/${organizationId}/tags/${tagId}/pin`,
+    method: 'POST',
+  });
+}
+
+export async function unpinTag({
+  organizationId,
+  tagId,
+}: {
+  organizationId: string;
+  tagId: string;
+}) {
+  await apiClient({
+    path: `/api/organizations/${organizationId}/tags/${tagId}/pin`,
+    method: 'DELETE',
+  });
+}
+
+export async function reorderPinnedTags({
+  organizationId,
+  tagIds,
+}: {
+  organizationId: string;
+  tagIds: string[];
+}) {
+  await apiClient({
+    path: `/api/organizations/${organizationId}/tags/pinned/order`,
+    method: 'PUT',
+    body: { tagIds },
+  });
+}

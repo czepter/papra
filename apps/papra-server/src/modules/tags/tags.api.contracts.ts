@@ -203,3 +203,94 @@ export const getOrganizationTagsContract = defineApiContract({
     },
   },
 });
+
+const tagResponseSchema = v.object({
+  id: v.string(),
+  createdAt: isoDateStringSchema,
+  updatedAt: isoDateStringSchema,
+  organizationId: v.string(),
+  name: v.string(),
+  normalizedName: v.nullable(v.string()),
+  color: v.string(),
+  description: v.nullable(v.string()),
+});
+
+export const getOrganizationPinnedTagsContract = defineApiContract({
+  operationId: 'getOrganizationPinnedTags',
+  path: '/api/organizations/:organizationId/tags/pinned',
+  method: 'GET',
+  request: {
+    params: v.strictObject({
+      organizationId: organizationIdSchema,
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Returns the tags pinned by the current user in the organization, in order.',
+      content: {
+        'application/json': {
+          schema: v.object({ pinnedTags: v.array(tagResponseSchema) }),
+        },
+      },
+    },
+  },
+});
+
+export const pinOrganizationTagContract = defineApiContract({
+  operationId: 'pinOrganizationTag',
+  path: '/api/organizations/:organizationId/tags/:tagId/pin',
+  method: 'POST',
+  request: {
+    params: v.strictObject({
+      organizationId: organizationIdSchema,
+      tagId: tagIdSchema,
+    }),
+  },
+  responses: {
+    204: {
+      description: 'Pins the tag for the current user (no-op if already pinned).',
+      content: {},
+    },
+    ...errorResponseDefinition(tagNotFoundErrorDefinition),
+  },
+});
+
+export const unpinOrganizationTagContract = defineApiContract({
+  operationId: 'unpinOrganizationTag',
+  path: '/api/organizations/:organizationId/tags/:tagId/pin',
+  method: 'DELETE',
+  request: {
+    params: v.strictObject({
+      organizationId: organizationIdSchema,
+      tagId: tagIdSchema,
+    }),
+  },
+  responses: {
+    204: {
+      description: 'Unpins the tag for the current user.',
+      content: {},
+    },
+  },
+});
+
+export const reorderOrganizationPinnedTagsContract = defineApiContract({
+  operationId: 'reorderOrganizationPinnedTags',
+  path: '/api/organizations/:organizationId/tags/pinned/order',
+  method: 'PUT',
+  request: {
+    params: v.strictObject({
+      organizationId: organizationIdSchema,
+    }),
+    body: {
+      'application/json': v.strictObject({
+        tagIds: v.array(tagIdSchema),
+      }),
+    },
+  },
+  responses: {
+    204: {
+      description: 'Sets the order of the current user pinned tags.',
+      content: {},
+    },
+  },
+});

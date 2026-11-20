@@ -43,6 +43,11 @@ export const tagDocumentStorage = prefixStorage<{ documentId: string; tagId: str
   storage,
   'tagDocuments',
 );
+export const pinnedTagStorage = prefixStorage<{
+  tagId: string;
+  organizationId: string;
+  position: number;
+}>(storage, 'pinnedTags');
 export const taggingRuleStorage = prefixStorage<TaggingRule>(storage, 'taggingRules');
 export const apiKeyStorage = prefixStorage<ApiKey>(storage, 'apiKeys');
 export const webhooksStorage = prefixStorage<Webhook>(storage, 'webhooks');
