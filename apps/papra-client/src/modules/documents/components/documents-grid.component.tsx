@@ -3,7 +3,9 @@ import type { Component } from 'solid-js';
 import type { Document } from '../documents.types';
 import { formatBytes } from '@corentinth/chisels';
 import { A } from '@solidjs/router';
-import { For, Match, Show, Switch } from 'solid-js';
+import { createMemo, For, Match, Show, Switch } from 'solid-js';
+import { useCustomPropertyDisplayLabels } from '@/modules/custom-properties/custom-properties.composables';
+import { getDocumentCustomPropertyDisplayValues } from '@/modules/custom-properties/custom-property-display.models';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
@@ -19,6 +21,8 @@ import { DocumentTypeTile } from './document-thumbnail.component';
 // Controls revealed on hover (always visible on devices without hover, and when keyboard focused)
 const revealOnHoverClass =
   'opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100';
+
+const MAX_CARD_CUSTOM_PROPERTIES = 3;
 
 const DocumentCardPreview: Component<{ document: Document }> = (props) => {
   const preview = createDocumentPreview({
@@ -91,6 +95,13 @@ const DocumentCard: Component<{
   const { t } = useI18n();
 
   const getExtension = () => getDocumentNameExtension({ name: props.document.name });
+  const getCustomPropertyLabels = useCustomPropertyDisplayLabels();
+  const getCustomPropertyValues = createMemo(() =>
+    getDocumentCustomPropertyDisplayValues({
+      document: props.document,
+      labels: getCustomPropertyLabels(),
+    }),
+  );
 
   return (
     <div
@@ -160,6 +171,19 @@ const DocumentCard: Component<{
           {' · '}
           {formatBytes({ bytes: props.document.originalSize, base: 1000 })}
         </div>
+
+        <Show when={getCustomPropertyValues().length > 0}>
+          <dl class="flex flex-col gap-0.5 text-xs text-muted-foreground">
+            <For each={getCustomPropertyValues().slice(0, MAX_CARD_CUSTOM_PROPERTIES)}>
+              {(item) => (
+                <div class="truncate" title={`${item.name}: ${item.text}`}>
+                  <dt class="inline">{item.name}: </dt>
+                  <dd class="inline text-foreground/80">{item.text}</dd>
+                </div>
+              )}
+            </For>
+          </dl>
+        </Show>
 
         <div class="relative z-10 flex h-6 flex-nowrap items-center gap-1 overflow-hidden">
           <For each={props.document.tags}>

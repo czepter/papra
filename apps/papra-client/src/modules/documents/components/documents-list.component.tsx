@@ -17,7 +17,9 @@ import {
   getCoreRowModel,
   getPaginationRowModel,
 } from '@tanstack/solid-table';
-import { For, Match, Show, Switch } from 'solid-js';
+import { createMemo, For, Match, Show, Switch } from 'solid-js';
+import { useCustomPropertyDisplayLabels } from '@/modules/custom-properties/custom-properties.composables';
+import { createCustomPropertyColumns } from '@/modules/custom-properties/custom-property-columns';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
@@ -271,12 +273,21 @@ export const DocumentsPaginatedList: Component<{
   onQuickLook?: (document: Document) => void;
 }> = (props) => {
   const { t } = useI18n();
-  const table = createSolidTable({
-    get data() {
-      return props.documents ?? [];
-    },
-    getRowId: (row) => row.id,
-    columns: [
+  const getCustomPropertyLabels = useCustomPropertyDisplayLabels();
+  // Memoized so the table sees a new columns array only when the page's documents change
+  const getCustomPropertyColumns = createMemo(() =>
+    createCustomPropertyColumns({
+      documents: props.documents ?? [],
+      labels: getCustomPropertyLabels(),
+    }),
+  );
+  const getColumns = createMemo((): ColumnDef<Document>[] => {
+    const extraColumns = props.extraColumns ?? [];
+    // Property columns sit before the trailing actions column
+    const actionsIndex = extraColumns.findIndex((column) => column.id === 'actions');
+    const insertAt = actionsIndex === -1 ? extraColumns.length : actionsIndex;
+
+    return [
       ...(props.enableBatchSelection ? [selectionColumn] : []),
       {
         header: () => t('documents.list.table.headers.file-name'),
@@ -311,8 +322,19 @@ export const DocumentsPaginatedList: Component<{
           </div>
         ),
       },
-      ...(props.extraColumns ?? []),
-    ],
+      ...extraColumns.slice(0, insertAt),
+      ...getCustomPropertyColumns(),
+      ...extraColumns.slice(insertAt),
+    ];
+  });
+  const table = createSolidTable({
+    get data() {
+      return props.documents ?? [];
+    },
+    getRowId: (row) => row.id,
+    get columns() {
+      return getColumns();
+    },
     get rowCount() {
       return props.documentsCount;
     },

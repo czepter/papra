@@ -570,6 +570,8 @@ export const translations: Partial<TranslationsDictionary> = {
 
   'documents.custom-properties.section-title': 'Eigenschaften',
   'documents.custom-properties.no-value': 'Nicht festgelegt',
+  'documents.custom-properties.boolean-true': 'Ja',
+  'documents.custom-properties.boolean-false': 'Nein',
   'documents.custom-properties.text-placeholder': 'Wert eingeben...',
   'documents.custom-properties.save': 'Speichern',
   'documents.custom-properties.clear': 'Löschen',
