@@ -275,7 +275,7 @@ describe('document inbox repository', () => {
   });
 
   describe('moveDocumentsBackToInbox', () => {
-    test('in shared mode all member reviews of the document are removed but system reviews are kept', async () => {
+    test('in shared mode every review of the document is removed, system reviews included', async () => {
       const { db } = await createTestDatabase();
       const repository = createDocumentInboxRepository({ db });
       const base = { organizationId: ORGANIZATION_ID, documentIds: ['doc_new', 'doc_mid'] };
@@ -295,12 +295,38 @@ describe('document inbox repository', () => {
 
       const reviews = await db.select().from(documentReviewsTable);
 
-      expect(reviews.map(({ documentId, userId }) => ({ documentId, userId }))).to.eql([
-        { documentId: 'doc_mid', userId: null },
-      ]);
+      expect(reviews).to.eql([]);
       expect(
         (await getInboxIds({ repository, userId: 'usr_1', mode: INBOX_MODES.SHARED })).ids,
-      ).to.eql(['doc_new', 'doc_old']);
+      ).to.eql(['doc_new', 'doc_mid', 'doc_old']);
+    });
+
+    test('in per_user mode a system reviewed document goes back to the inbox of the user only', async () => {
+      const { db } = await createTestDatabase();
+      const repository = createDocumentInboxRepository({ db });
+
+      await db
+        .insert(documentReviewsTable)
+        .values({ organizationId: ORGANIZATION_ID, documentId: 'doc_new', userId: null });
+
+      await repository.moveDocumentsBackToInbox({
+        organizationId: ORGANIZATION_ID,
+        documentIds: ['doc_new'],
+        userId: 'usr_1',
+        mode: INBOX_MODES.PER_USER,
+      });
+
+      const reviews = await db.select().from(documentReviewsTable);
+
+      expect(reviews.map(({ documentId, userId }) => ({ documentId, userId }))).to.eql([
+        { documentId: 'doc_new', userId: 'usr_2' },
+      ]);
+      expect(
+        (await getInboxIds({ repository, userId: 'usr_1', mode: INBOX_MODES.PER_USER })).ids,
+      ).to.include('doc_new');
+      expect(
+        (await getInboxIds({ repository, userId: 'usr_2', mode: INBOX_MODES.PER_USER })).ids,
+      ).to.not.include('doc_new');
     });
 
     test('in per_user mode only the review of the user is removed', async () => {

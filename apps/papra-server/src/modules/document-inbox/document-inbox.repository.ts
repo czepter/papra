@@ -9,7 +9,7 @@ import {
   eq,
   getTableColumns,
   inArray,
-  isNotNull,
+  ne,
   isNull,
   notExists,
   sql,
@@ -174,33 +174,76 @@ async function markDocumentsAsReviewed({
   }
 }
 
-// Shared: removes every member review so the documents are back in everyone's inbox
-// Per user: removes the review of the user only
-// System reviews are never removed
+// Shared: removes every review, system ones included, so the documents are back in everyone's inbox
+// Per user: removes the review of the user only. A system review would still hide the document for everyone,
+// so it is first turned into explicit reviews of the other members, keeping their inbox unchanged
 async function moveDocumentsBackToInbox({
   organizationId,
   documentIds,
   userId,
   mode,
   db,
+  now = new Date(),
 }: {
   organizationId: string;
   documentIds: string[];
   userId: string;
   mode: InboxMode;
   db: Database;
+  now?: Date;
 }) {
   for (const chunk of chunkArray([...new Set(documentIds)], REVIEWS_CHUNK_SIZE)) {
+    const inChunk = and(
+      eq(documentReviewsTable.organizationId, organizationId),
+      inArray(documentReviewsTable.documentId, chunk),
+    );
+
+    if (mode === INBOX_MODES.SHARED) {
+      await db.delete(documentReviewsTable).where(inChunk);
+      continue;
+    }
+
+    const systemReviewed = await db
+      .select({ documentId: documentReviewsTable.documentId })
+      .from(documentReviewsTable)
+      .where(and(inChunk, isNull(documentReviewsTable.userId)));
+
+    const systemReviewedIds = systemReviewed.map(({ documentId }) => documentId);
+
+    if (systemReviewedIds.length > 0) {
+      const otherMembers = await db
+        .select({ userId: organizationMembersTable.userId })
+        .from(organizationMembersTable)
+        .where(
+          and(
+            eq(organizationMembersTable.organizationId, organizationId),
+            ne(organizationMembersTable.userId, userId),
+          ),
+        );
+
+      for (const { userId: memberId } of otherMembers) {
+        await markDocumentsAsReviewed({
+          organizationId,
+          documentIds: systemReviewedIds,
+          userId: memberId,
+          db,
+          now,
+        });
+      }
+
+      await db
+        .delete(documentReviewsTable)
+        .where(
+          and(
+            eq(documentReviewsTable.organizationId, organizationId),
+            inArray(documentReviewsTable.documentId, systemReviewedIds),
+            isNull(documentReviewsTable.userId),
+          ),
+        );
+    }
+
     await db
       .delete(documentReviewsTable)
-      .where(
-        and(
-          eq(documentReviewsTable.organizationId, organizationId),
-          inArray(documentReviewsTable.documentId, chunk),
-          mode === INBOX_MODES.SHARED
-            ? isNotNull(documentReviewsTable.userId)
-            : eq(documentReviewsTable.userId, userId),
-        ),
-      );
+      .where(and(inChunk, eq(documentReviewsTable.userId, userId)));
   }
 }
