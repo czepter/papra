@@ -1033,6 +1033,7 @@ export const translations = {
   'mcp-settings.connected-apps.revoke.confirm.confirm-button': 'Revoke access',
   'mcp-settings.connected-apps.revoke.confirm.cancel-button': 'Cancel',
   'mcp-settings.connected-apps.revoke.success': 'Access revoked',
+  'mcp-settings.connected-apps.revoke.already-gone': 'This app no longer has access.',
   'mcp-settings.connected-apps.revoke.error': 'The access could not be revoked. Please try again.',
   'oauth-consent.title': 'Allow access to your Papra account?',
   'oauth-consent.description': 'wants to connect to your Papra account through MCP.',

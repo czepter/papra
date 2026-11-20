@@ -10,16 +10,15 @@ export const ScopeLabel: Component<{ scope: string; isKnown: boolean }> = (props
   const { t } = useI18n();
 
   return (
-    <>
-      <span class="break-words min-w-0">
-        {props.isKnown ? t(`oauth-consent.scopes.${props.scope}` as TranslationKeys) : props.scope}
-      </span>
+    // One block next to the icon: the text wraps beside it and the cue follows the text
+    <span class="min-w-0 flex-1 break-words">
+      {props.isKnown ? t(`oauth-consent.scopes.${props.scope}` as TranslationKeys) : props.scope}
       <Show when={isDestructiveScope({ scope: props.scope })}>
-        <span class="shrink-0 rounded-sm border border-destructive/40 text-destructive px-1 text-[0.7rem] leading-4 font-medium uppercase tracking-wide">
+        <span class="ml-2 inline-block align-middle rounded-sm border border-destructive/40 dark:border-red-400/60 text-destructive dark:text-red-400 px-1 text-[0.7rem] leading-4 font-medium uppercase tracking-wide">
           {t('oauth-consent.scopes.destructive-cue')}
         </span>
       </Show>
-    </>
+    </span>
   );
 };
 
@@ -27,7 +26,7 @@ export const ScopeIcon: Component<{ scope: string }> = (props) => (
   <div
     class={
       isDestructiveScope({ scope: props.scope })
-        ? 'i-tabler-trash size-4 text-destructive mt-0.5 shrink-0'
+        ? 'i-tabler-trash size-4 text-destructive dark:text-red-400 mt-0.5 shrink-0'
         : 'i-tabler-check size-4 text-primary mt-0.5 shrink-0'
     }
     aria-hidden="true"

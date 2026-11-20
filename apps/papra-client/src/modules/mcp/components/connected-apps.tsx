@@ -64,7 +64,7 @@ const ConnectedAppScopes: Component<{ scopes: string[] }> = (props) => {
               <ul class="mt-1 flex flex-col gap-1 text-sm">
                 <For each={group.scopes.filter(({ scope }) => getVisibleScopes().has(scope))}>
                   {(item) => (
-                    <li class="flex flex-wrap gap-x-2 gap-y-0.5 items-start">
+                    <li class="flex gap-2 items-start">
                       <ScopeIcon scope={item.scope} />
                       <ScopeLabel scope={item.scope} isKnown={item.isKnown} />
                     </li>
@@ -103,8 +103,10 @@ const ConnectedAppCard: Component<{ app: ConnectedApp }> = (props) => {
 
   const revokeMutation = useMutation(() => ({
     mutationFn: revokeConnectedApp,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: connectedAppsQueryKey });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: connectedAppsQueryKey });
+      // The row is gone: keep the keyboard position in the section instead of dropping to the page
+      document.getElementById('connected-apps-title')?.focus();
       createToast({ type: 'success', message: t('mcp-settings.connected-apps.revoke.success') });
     },
     onError: (error) => {
@@ -112,7 +114,12 @@ const ConnectedAppCard: Component<{ app: ConnectedApp }> = (props) => {
       if (isHttpErrorWithStatusCode({ error, statusCode: 404 })) {
         void queryClient.invalidateQueries({ queryKey: connectedAppsQueryKey });
       }
-      createToast({ type: 'error', message: t('mcp-settings.connected-apps.revoke.error') });
+      createToast({
+        type: 'error',
+        message: isHttpErrorWithStatusCode({ error, statusCode: 404 })
+          ? t('mcp-settings.connected-apps.revoke.already-gone')
+          : t('mcp-settings.connected-apps.revoke.error'),
+      });
     },
   }));
 
@@ -207,7 +214,7 @@ export const ConnectedApps: Component = () => {
   return (
     <section class="mt-6" aria-labelledby="connected-apps-title">
       <div class="border-b pb-4">
-        <h2 id="connected-apps-title" class="text-lg font-semibold mb-1">
+        <h2 id="connected-apps-title" tabindex="-1" class="text-lg font-semibold mb-1 outline-none">
           {t('mcp-settings.connected-apps.title')}
         </h2>
         <p class="text-sm text-muted-foreground">{t('mcp-settings.connected-apps.description')}</p>

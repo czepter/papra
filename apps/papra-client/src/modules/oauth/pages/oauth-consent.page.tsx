@@ -171,7 +171,7 @@ export const OauthConsentPage: Component = () => {
                     <ul class="mt-1 flex flex-col gap-1 text-sm">
                       <For each={group.scopes}>
                         {(item) => (
-                          <li class="flex flex-wrap gap-x-2 gap-y-0.5 items-start">
+                          <li class="flex gap-2 items-start">
                             <ScopeIcon scope={item.scope} />
                             <ScopeLabel scope={item.scope} isKnown={item.isKnown} />
                           </li>

@@ -149,13 +149,24 @@ export function buildVerifyOauthAccessToken({
         .where(eq(oauthClientsTable.clientId, clientId));
 
       const [consent] = await db
-        .select({ id: oauthConsentsTable.id })
+        .select({ id: oauthConsentsTable.id, createdAt: oauthConsentsTable.createdAt })
         .from(oauthConsentsTable)
         .where(
           and(eq(oauthConsentsTable.clientId, clientId), eq(oauthConsentsTable.userId, userId)),
         );
 
       if (!user || !client || client.disabled || !consent) {
+        return { authInfo: undefined };
+      }
+
+      // A token issued before the current consent was given belongs to an approval that was revoked since:
+      // approving the app again must not revive it. Both values have one second resolution.
+      const { iat } = payload;
+      if (
+        typeof iat !== 'number' ||
+        !consent.createdAt ||
+        iat < Math.floor(consent.createdAt.getTime() / 1000)
+      ) {
         return { authInfo: undefined };
       }
 

@@ -77,6 +77,8 @@ A generic client configuration looks like this, the exact format depends on your
 
 Each tool needs the permissions listed below, the same ones as the matching REST API route. With the sign-in flow, these are the permissions you approve. With an API key, the key must have all of them. Tools only reach organizations the user is a member of.
 
+<div style="overflow-x: auto;">
+
 | Tool | What it does | Required permissions |
 | --- | --- | --- |
 | `ping` | Checks that the connection works. | None |
@@ -101,6 +103,8 @@ Each tool needs the permissions listed below, the same ones as the matching REST
 | `get_document_custom_properties` | Returns the custom property values of a document. | `documents:read`, `custom-properties:read` |
 | `set_document_custom_property` | Sets a custom property value on a document. | `documents:update`, `custom-properties:read` |
 | `delete_document_custom_property` | Clears a custom property value on a document. | `documents:update`, `custom-properties:read` |
+
+</div>
 
 The permissions are the same as for API keys, see the [API endpoints](/resources/api-endpoints) page for the REST routes.
 

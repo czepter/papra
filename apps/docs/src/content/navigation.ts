@@ -78,7 +78,7 @@ export const sidebar = [
         slug: 'guides/auto-tagging',
       },
       {
-        label: 'Connect an MCP Client',
+        label: 'Connect an MCP client',
         slug: 'guides/connect-mcp-client',
       },
     ],

@@ -1022,6 +1022,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'mcp-settings.connected-apps.revoke.confirm.confirm-button': 'Zugriff widerrufen',
   'mcp-settings.connected-apps.revoke.confirm.cancel-button': 'Abbrechen',
   'mcp-settings.connected-apps.revoke.success': 'Zugriff widerrufen',
+  'mcp-settings.connected-apps.revoke.already-gone': 'Diese App hat keinen Zugriff mehr.',
   'mcp-settings.connected-apps.revoke.error':
     'Der Zugriff konnte nicht widerrufen werden. Bitte versuchen Sie es erneut.',
   'oauth-consent.title': 'Zugriff auf Ihr Papra-Konto erlauben?',

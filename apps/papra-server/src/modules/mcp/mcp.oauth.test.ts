@@ -31,6 +31,7 @@ async function sign({
   kid = 'key-1',
   expiresIn = '10m',
   omit = [],
+  issuedAt,
 }: {
   payload?: JWTPayload;
   key?: KeyPair;
@@ -38,6 +39,7 @@ async function sign({
   kid?: string;
   expiresIn?: string | number;
   omit?: string[];
+  issuedAt?: number;
 } = {}) {
   const claims: JWTPayload = {
     sub: 'usr_alice',
@@ -53,7 +55,7 @@ async function sign({
 
   return new SignJWT(claims)
     .setProtectedHeader({ alg, kid })
-    .setIssuedAt()
+    .setIssuedAt(issuedAt)
     .setExpirationTime(expiresIn)
     .sign(key.privateKey);
 }
@@ -67,6 +69,7 @@ async function setup() {
     clientId: 'client-1',
     userId: 'usr_alice',
     scopes: '[]',
+    createdAt: new Date(Date.now() - 60_000),
   });
 
   return { db, verify: buildVerifyOauthAccessToken({ auth, db, config }) };
@@ -169,6 +172,22 @@ describe('mcp oauth access token verification', () => {
 
     await db.delete(oauthConsentsTable);
     expect((await verify({ token })).authInfo).to.eql(undefined);
+  });
+
+  test('a token issued before the current consent was given is refused, one issued after it is accepted', async () => {
+    const { verify, db } = await setup();
+    const issuedBefore = await sign({
+      issuedAt: Math.floor(Date.now() / 1000) - 3600,
+      expiresIn: Math.floor(Date.now() / 1000) + 600,
+    });
+    const issuedAfter = await sign();
+
+    expect((await verify({ token: issuedBefore })).authInfo).to.eql(undefined);
+    expect((await verify({ token: issuedAfter })).authInfo).not.to.eql(undefined);
+
+    // A consent row without a creation date cannot prove anything
+    await db.update(oauthConsentsTable).set({ createdAt: null });
+    expect((await verify({ token: issuedAfter })).authInfo).to.eql(undefined);
   });
 
   test('a disabled client is refused', async () => {

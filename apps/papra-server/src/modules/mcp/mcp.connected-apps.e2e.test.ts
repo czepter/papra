@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { getApiKeyHash } from '../api-keys/api-keys.models';
 import { apiKeysTable } from '../api-keys/api-keys.tables';
 import { createPkcePair, setupOauthTest } from './mcp.oauth.test-utils';
@@ -82,6 +82,10 @@ async function revokeConnectedApp({
 }
 
 describe('mcp connected apps e2e', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   test('a user revokes an app: their tokens stop working at once, the other user of the same app is unaffected', async () => {
     const t = await setupWithTwoUsers();
     const { response: registerResponse } = await t.registerClient();
@@ -138,6 +142,23 @@ describe('mcp connected apps e2e', () => {
       refreshToken: oldTokens.refresh_token as string,
     });
     expect(refreshed.status).toBeGreaterThanOrEqual(400);
+  });
+
+  test('an access token issued before a revoke stays rejected after the user approves the app again, a new one works', async () => {
+    const t = await setupWithTwoUsers();
+    const { response: registerResponse } = await t.registerClient();
+    const { client_id: clientId } = (await registerResponse.json()) as { client_id: string };
+    const oldTokens = await approve({ t, cookie: t.cookie1, clientId });
+    expect((await callMcp({ t, token: oldTokens.access_token })).status).to.eql(200);
+
+    await revokeConnectedApp({ t, cookie: t.cookie1, clientId });
+
+    // Token and consent timestamps have a one second resolution: approve again in a later second, well within the token lifetime
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 5000 });
+    const newTokens = await approve({ t, cookie: t.cookie1, clientId });
+
+    expect((await callMcp({ t, token: oldTokens.access_token })).status).to.eql(401);
+    expect((await callMcp({ t, token: newTokens.access_token })).status).to.eql(200);
   });
 
   test('the list shows display fields only, for the signed-in user only', async () => {
