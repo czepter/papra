@@ -17,6 +17,10 @@ import {
 import { useConfig } from '@/modules/config/config.provider';
 import { DocumentCustomPropertiesPanel } from '@/modules/custom-properties/components/document-custom-properties-panel.component';
 import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
+import {
+  createMarkAsReviewedOnView,
+  useMoveDocumentToInbox,
+} from '@/modules/document-inbox/document-inbox.composables';
 import { useShareDocumentDialog } from '@/modules/document-share-links/components/share-document-dialog.component';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -290,6 +294,12 @@ export const DocumentPage: Component = () => {
   const { config } = useConfig();
   const { openRenameDialog } = useRenameDocumentDialog();
   const { openShareDialog } = useShareDocumentDialog();
+  const { moveToInbox, getIsMoving } = useMoveDocumentToInbox();
+
+  // Opening a document reviews it
+  createMarkAsReviewedOnView({
+    getTarget: () => ({ organizationId: params.organizationId, documentId: params.documentId }),
+  });
 
   const getInitialTab = (): Tab => {
     const tab = searchParams.tab;
@@ -422,6 +432,23 @@ export const DocumentPage: Component = () => {
                       <div class="i-tabler-share size-4 mr-2" />
                       {t('document-share-links.share-action')}
                     </Button>
+
+                    <Show when={!getDocument().isDeleted}>
+                      <Button
+                        onClick={async () =>
+                          moveToInbox({
+                            documentId: getDocument().id,
+                            organizationId: params.organizationId,
+                          })
+                        }
+                        isLoading={getIsMoving()}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <div class="i-tabler-inbox size-4 mr-2" />
+                        {t('inbox.actions.move-to-inbox')}
+                      </Button>
+                    </Show>
 
                     {getDocument().isDeleted ? (
                       <Button

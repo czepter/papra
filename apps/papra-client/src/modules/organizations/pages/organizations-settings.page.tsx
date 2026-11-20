@@ -5,6 +5,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createSignal, Match, Show, Suspense, Switch } from 'solid-js';
 import * as v from 'valibot';
+import { InboxSettingsCard } from '@/modules/document-inbox/components/inbox-settings-card.component';
 import { isDemoMode } from '@/modules/config/config';
 import { useConfig } from '@/modules/config/config.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -31,6 +32,7 @@ import {
   useDeleteOrganization,
   useUpdateOrganization,
 } from '../organizations.composables';
+import { getOrganizationSettingsQueryOptions } from '../organizations.queries';
 import { organizationNameSchema } from '../organizations.schemas';
 import { fetchOrganization } from '../organizations.services';
 
@@ -265,6 +267,10 @@ export const OrganizationsSettingsPage: Component = () => {
     queryKey: ['organizations', params.organizationId],
     queryFn: async () => fetchOrganization({ organizationId: params.organizationId }),
   }));
+  const settingsQuery = useQuery(() =>
+    getOrganizationSettingsQueryOptions({ organizationId: params.organizationId }),
+  );
+  const { getIsOwner } = useCurrentUserRole({ organizationId: params.organizationId });
 
   return (
     <div class="p-6 pb-32 mx-auto max-w-screen-md w-full">
@@ -278,6 +284,15 @@ export const OrganizationsSettingsPage: Component = () => {
 
               <div class="mt-6 flex flex-col gap-6">
                 <UpdateOrganizationNameCard organization={getOrganization()} />
+                <Show when={settingsQuery.data?.organizationSettings.inbox}>
+                  {(getInboxSettings) => (
+                    <InboxSettingsCard
+                      organizationId={params.organizationId}
+                      mode={getInboxSettings().mode}
+                      canEdit={getIsOwner()}
+                    />
+                  )}
+                </Show>
                 <SubscriptionCard organization={getOrganization()} />
                 <DeleteOrganizationCard organization={getOrganization()} />
               </div>

@@ -1,3 +1,4 @@
+import type { InboxMode } from '../document-inbox/document-inbox.constants';
 import type { AsDto } from '../shared/http/http-client.types';
 import type {
   Organization,
@@ -177,6 +178,9 @@ export async function fetchOrganizationSettings({ organizationId }: { organizati
           maxTags: number;
         };
       };
+      inbox: {
+        mode: InboxMode;
+      };
     };
   }>({
     path: `/api/organizations/${organizationId}/settings`,
@@ -200,6 +204,9 @@ export async function updateOrganizationSettings({
         canCreateNewTags?: boolean;
         maxTags?: number;
       };
+    };
+    inbox?: {
+      mode?: InboxMode;
     };
   };
 }) {

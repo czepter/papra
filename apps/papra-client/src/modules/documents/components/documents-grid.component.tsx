@@ -87,6 +87,8 @@ const DocumentCard: Component<{
   isFocused: boolean;
   onToggleSelected: (value: boolean) => void;
   onQuickLook?: (document: Document) => void;
+  // Shows a "Done" control on the card (inbox)
+  onMarkDone?: (document: Document) => void;
 }> = (props) => {
   const { t } = useI18n();
 
@@ -117,6 +119,24 @@ const DocumentCard: Component<{
           >
             <CheckboxControl />
           </Checkbox>
+        </Show>
+
+        <Show when={props.onMarkDone}>
+          {(getOnMarkDone) => (
+            <button
+              type="button"
+              class={cn(
+                'absolute right-2 bottom-2 z-10 flex h-7 items-center justify-center gap-1 rounded-md bg-background/90 px-2 text-xs font-medium text-foreground shadow-sm hover:bg-background',
+                revealOnHoverClass,
+              )}
+              aria-label={t('inbox.actions.done')}
+              title={t('inbox.actions.done')}
+              onClick={() => getOnMarkDone()(props.document)}
+            >
+              <div class="i-tabler-check size-4" />
+              {t('inbox.actions.done')}
+            </button>
+          )}
         </Show>
 
         <Show when={props.onQuickLook}>
@@ -183,6 +203,7 @@ export const DocumentsGrid: Component<{
   // Document highlighted by the keyboard navigation
   focusedDocumentId?: string;
   onQuickLook?: (document: Document) => void;
+  onMarkDone?: (document: Document) => void;
 }> = (props) => {
   return (
     <div class="grid grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -195,6 +216,7 @@ export const DocumentsGrid: Component<{
             isFocused={props.focusedDocumentId === row.original.id}
             onToggleSelected={(value) => row.toggleSelected(value)}
             onQuickLook={props.onQuickLook}
+            onMarkDone={props.onMarkDone}
           />
         )}
       </For>

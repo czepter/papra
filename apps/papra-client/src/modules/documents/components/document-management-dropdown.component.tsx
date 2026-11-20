@@ -4,6 +4,7 @@ import type { Document } from '../documents.types';
 import { A } from '@solidjs/router';
 import { Show } from 'solid-js';
 import { useConfig } from '@/modules/config/config.provider';
+import { useMoveDocumentToInbox } from '@/modules/document-inbox/document-inbox.composables';
 import { useShareDocumentDialog } from '@/modules/document-share-links/components/share-document-dialog.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Button } from '@/modules/ui/components/button';
@@ -32,6 +33,7 @@ export const DocumentManagementDropdown: Component<{ document: Document }> = (pr
   const { downloadDocument } = useDownloadDocument();
   const { openRenameDialog } = useRenameDocumentDialog();
   const { openShareDialog } = useShareDocumentDialog();
+  const { moveToInbox } = useMoveDocumentToInbox();
   const { t } = useI18n();
 
   const deleteDoc = async () =>
@@ -114,6 +116,21 @@ export const DocumentManagementDropdown: Component<{ document: Document }> = (pr
           <div class="i-tabler-pencil size-4 mr-2" />
           <span>{t('documents.management.rename')}</span>
         </DropdownMenuItem>
+
+        <Show when={!props.document.isDeleted}>
+          <DropdownMenuItem
+            class="cursor-pointer"
+            onClick={async () =>
+              moveToInbox({
+                documentId: props.document.id,
+                organizationId: props.document.organizationId,
+              })
+            }
+          >
+            <div class="i-tabler-inbox size-4 mr-2" />
+            <span>{t('inbox.actions.move-to-inbox')}</span>
+          </DropdownMenuItem>
+        </Show>
 
         <Show when={config.documents.isReprocessingEnabled && !props.document.isDeleted}>
           <DropdownMenuItem

@@ -5,6 +5,7 @@ import type { DocumentSearchSortField, DocumentSearchSortOrder } from '../docume
 import { useParams } from '@solidjs/router';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, on, Show, Suspense } from 'solid-js';
+import { invalidateInboxQueries } from '@/modules/document-inbox/document-inbox.composables';
 import { CreateDocumentViewModal } from '@/modules/document-views/components/document-view-modals';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useConfirmModal } from '@/modules/shared/confirm';
@@ -203,6 +204,8 @@ export const DocumentsPage: Component = () => {
     void queryClient.invalidateQueries({
       queryKey: ['organizations', params.organizationId, 'documents'],
     });
+    // Trashing and tagging documents changes the inbox
+    void invalidateInboxQueries({ organizationId: params.organizationId });
   }
 
   const trashMutation = useMutation(() => ({
