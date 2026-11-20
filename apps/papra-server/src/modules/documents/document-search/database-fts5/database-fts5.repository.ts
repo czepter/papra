@@ -57,7 +57,10 @@ async function searchOrganizationDocuments({
     now,
     customPropertyDefinitions,
   });
-  const { orderByClauses, sortColumn } = makeSearchOrderByClauses({ sort });
+  const { orderByClauses, sortColumn } = makeSearchOrderByClauses({
+    sort,
+    customPropertyDefinitions,
+  });
 
   const paginatedIdsSubquery = db
     // selecting the sort value keeps it in the result set so the DISTINCT + ORDER BY of the paginated subquery stays unambiguous (the tag filters can otherwise produce duplicate rows per document)

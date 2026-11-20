@@ -5,7 +5,10 @@ import {
   getDaysBeforePermanentDeletion,
   getDocumentIcon,
   getDocumentNameExtension,
+  getCustomPropertyKeyFromSortField,
+  getCustomPropertySortField,
   getDocumentNameWithoutExtension,
+  isDocumentSearchSortField,
   makeDocumentSearchPermalink,
   makeDocumentSearchQuery,
 } from './document.models';
@@ -378,5 +381,23 @@ describe('files models', () => {
         '/organizations/org-123/documents?query=tag%3Ainvoices%20tag%3Areceipts%20tag%3Atag_2222%20financial%20report',
       );
     });
+  });
+});
+
+describe('documents sort models', () => {
+  test('a custom property sort field round-trips to its key', () => {
+    const field = getCustomPropertySortField({ key: 'korrespondent' });
+
+    expect(field).to.equal('customProperty:korrespondent');
+    expect(getCustomPropertyKeyFromSortField({ field })).to.equal('korrespondent');
+    expect(getCustomPropertyKeyFromSortField({ field: 'name' })).to.equal(undefined);
+    expect(getCustomPropertyKeyFromSortField({ field: 'customProperty:' })).to.equal(undefined);
+  });
+
+  test('built-in and custom property fields are valid sort fields, anything else is not', () => {
+    expect(isDocumentSearchSortField('createdAt')).to.equal(true);
+    expect(isDocumentSearchSortField('customProperty:amount')).to.equal(true);
+    expect(isDocumentSearchSortField('customProperty:')).to.equal(false);
+    expect(isDocumentSearchSortField('select')).to.equal(false);
   });
 });

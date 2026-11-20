@@ -10,16 +10,19 @@ import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import type { Pagination } from '@/modules/shared/pagination/pagination.types';
 import type { Tag } from '@/modules/tags/tags.types';
 import { formatBytes } from '@corentinth/chisels';
-import { A } from '@solidjs/router';
+import { A, useParams } from '@solidjs/router';
 import {
   createSolidTable,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
 } from '@tanstack/solid-table';
+import { useQuery } from '@tanstack/solid-query';
 import { createMemo, For, Match, Show, Switch } from 'solid-js';
 import { useCustomPropertyDisplayLabels } from '@/modules/custom-properties/custom-properties.composables';
+import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
 import { createCustomPropertyColumns } from '@/modules/custom-properties/custom-property-columns';
+import { getCustomPropertyColumnDefinitions } from '@/modules/custom-properties/custom-property-display.models';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
@@ -40,7 +43,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/modules/ui/components/table';
-import { getDocumentNameExtension, getDocumentNameWithoutExtension } from '../document.models';
+import {
+  getCustomPropertyKeyFromSortField,
+  getCustomPropertySortField,
+  getDocumentNameExtension,
+  getDocumentNameWithoutExtension,
+} from '../document.models';
 import type { DocumentsView } from '../documents-view-preference.models';
 import { DOCUMENT_ID_ATTRIBUTE } from '../documents-keyboard.composables';
 import { DocumentManagementDropdown } from './document-management-dropdown.component';
@@ -171,13 +179,22 @@ const sortableColumnLabelKeys: Record<string, TranslationKeys> = {
 const DocumentsGridToolbar: Component<{
   table: TanstackTable<Document>;
   enableBatchSelection?: boolean;
+  // Labels of the sortable property columns, keyed by column id
+  customPropertyColumnLabels: Record<string, string>;
 }> = (props) => {
   const { t } = useI18n();
 
   const getSortableColumns = () =>
     props.table
       .getAllLeafColumns()
-      .filter((column) => column.getCanSort() && column.id in sortableColumnLabelKeys);
+      .filter(
+        (column) =>
+          column.getCanSort() &&
+          (column.id in sortableColumnLabelKeys || column.id in props.customPropertyColumnLabels),
+      );
+  const getColumnLabel = (columnId: string) =>
+    props.customPropertyColumnLabels[columnId] ??
+    t(sortableColumnLabelKeys[columnId] ?? sortableColumnLabelKeys.name!);
   const getSortedColumn = () => getSortableColumns().find((column) => column.getIsSorted());
 
   return (
@@ -210,21 +227,12 @@ const DocumentsGridToolbar: Component<{
             disallowEmptySelection
             itemComponent={(itemProps) => (
               <SelectItem item={itemProps.item}>
-                {t(
-                  sortableColumnLabelKeys[itemProps.item.rawValue] ?? sortableColumnLabelKeys.name!,
-                )}
+                {getColumnLabel(itemProps.item.rawValue)}
               </SelectItem>
             )}
           >
             <SelectTrigger class="h-8 w-auto gap-2" aria-label={t('documents.grid.sort.label')}>
-              <SelectValue<string>>
-                {(state) =>
-                  t(
-                    sortableColumnLabelKeys[state.selectedOption()] ??
-                      sortableColumnLabelKeys.name!,
-                  )
-                }
-              </SelectValue>
+              <SelectValue<string>>{(state) => getColumnLabel(state.selectedOption())}</SelectValue>
             </SelectTrigger>
             <SelectContent />
           </Select>
@@ -269,17 +277,53 @@ export const DocumentsPaginatedList: Component<{
   view?: DocumentsView;
   // Document highlighted by the keyboard navigation
   focusedDocumentId?: string;
+  // Makes the custom property values links filtering the documents, receives the search term of the value
+  getCustomPropertyFilterHref?: (term: string) => string;
   // Opens the quick look overlay: from the thumbnails of the list and the eye button of the grid cards
   onQuickLook?: (document: Document) => void;
 }> = (props) => {
   const { t } = useI18n();
+  const params = useParams();
   const getCustomPropertyLabels = useCustomPropertyDisplayLabels();
+
+  // The property the list is sorted by keeps its column even when the page has no value for it,
+  // otherwise the sort header (and the way back) would vanish
+  const getSortedPropertyKey = () =>
+    getCustomPropertyKeyFromSortField({ field: props.getSorting?.()[0]?.id ?? '' });
+  const propertyDefinitionsQuery = useQuery(() => ({
+    queryKey: ['organizations', params.organizationId, 'custom-properties'],
+    queryFn: async () => fetchCustomPropertyDefinitions({ organizationId: params.organizationId }),
+    enabled: getSortedPropertyKey() !== undefined,
+  }));
+  const getPinnedDefinitions = createMemo(() => {
+    const definition = propertyDefinitionsQuery.data?.propertyDefinitions.find(
+      ({ key }) => key === getSortedPropertyKey(),
+    );
+    return definition ? [definition] : [];
+  });
+
   // Memoized so the table sees a new columns array only when the page's documents change
-  const getCustomPropertyColumns = createMemo(() =>
-    createCustomPropertyColumns({
+  const getCustomPropertyDefinitions = createMemo(() =>
+    getCustomPropertyColumnDefinitions({
       documents: props.documents ?? [],
       labels: getCustomPropertyLabels(),
+      pinnedDefinitions: getPinnedDefinitions(),
     }),
+  );
+  const getCustomPropertyColumns = createMemo(() =>
+    createCustomPropertyColumns({
+      definitions: getCustomPropertyDefinitions(),
+      labels: getCustomPropertyLabels(),
+      getFilterHref: props.getCustomPropertyFilterHref,
+    }),
+  );
+  const getCustomPropertyColumnLabels = createMemo(() =>
+    Object.fromEntries(
+      getCustomPropertyDefinitions().map(({ key, name }) => [
+        getCustomPropertySortField({ key }),
+        name,
+      ]),
+    ),
   );
   const getColumns = createMemo((): ColumnDef<Document>[] => {
     const extraColumns = props.extraColumns ?? [];
@@ -440,13 +484,18 @@ export const DocumentsPaginatedList: Component<{
               </Table>
             }
           >
-            <DocumentsGridToolbar table={table} enableBatchSelection={props.enableBatchSelection} />
+            <DocumentsGridToolbar
+              table={table}
+              enableBatchSelection={props.enableBatchSelection}
+              customPropertyColumnLabels={getCustomPropertyColumnLabels()}
+            />
 
             <DocumentsGrid
               rows={table.getRowModel().rows}
               enableSelection={props.enableBatchSelection}
               focusedDocumentId={props.focusedDocumentId}
               onQuickLook={props.onQuickLook}
+              getCustomPropertyFilterHref={props.getCustomPropertyFilterHref}
             />
           </Show>
 

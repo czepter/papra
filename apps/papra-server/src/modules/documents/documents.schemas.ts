@@ -1,8 +1,10 @@
 import * as v from 'valibot';
 import { createRegexSchema } from '../shared/schemas/string.schemas';
+import type { DocumentSearchCustomPropertySortField } from './document-search/document-search.constants';
 import {
   documentSearchSortFields,
   documentSearchSortOrders,
+  isCustomPropertySortField,
 } from './document-search/document-search.constants';
 import { DOCUMENT_ID_REGEX, OCR_LANGUAGES } from './documents.constants';
 
@@ -46,5 +48,11 @@ export const stringCoercedOcrLanguagesSchema = v.pipe(
 
 export const searchDocumentsQuerySchema = v.pipe(v.string(), v.maxLength(1024));
 
-export const documentSearchSortFieldSchema = v.picklist(documentSearchSortFields);
+export const documentSearchSortFieldSchema = v.union([
+  v.picklist(documentSearchSortFields),
+  v.custom<DocumentSearchCustomPropertySortField>(
+    (value) => typeof value === 'string' && isCustomPropertySortField(value),
+    'Invalid custom property sort field',
+  ),
+]);
 export const documentSearchSortOrderSchema = v.picklist(documentSearchSortOrders);

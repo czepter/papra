@@ -2624,4 +2624,257 @@ describe('database-fts5 repository', () => {
       });
     });
   });
+
+  describe('custom property sort', () => {
+    const documents = ['doc_1', 'doc_2', 'doc_3', 'doc_4'].map((id, index) => ({
+      id,
+      organizationId: 'org_1',
+      name: `Document ${index + 1}`,
+      originalName: `${id}.pdf`,
+      content: 'lorem',
+      originalStorageKey: '',
+      mimeType: 'application/pdf',
+      originalSha256Hash: `hash_${id}`,
+      isDeleted: false,
+      // doc_4 is the oldest: the createdAt tiebreaker follows the sort direction
+      createdAt: new Date(2026, 0, 4 - index),
+    }));
+
+    const setupDb = async () => {
+      const { db } = await createInMemoryDatabase({
+        organizations: [{ id: 'org_1', name: 'Organization 1' }],
+        documents,
+        customPropertyDefinitions: [
+          {
+            id: 'cpd_text',
+            organizationId: 'org_1',
+            name: 'Sender',
+            key: 'sender',
+            type: 'text',
+            displayOrder: 0,
+          },
+          {
+            id: 'cpd_number',
+            organizationId: 'org_1',
+            name: 'Amount',
+            key: 'amount',
+            type: 'number',
+            displayOrder: 1,
+          },
+          {
+            id: 'cpd_select',
+            organizationId: 'org_1',
+            name: 'Kind',
+            key: 'kind',
+            type: 'select',
+            displayOrder: 2,
+          },
+          {
+            id: 'cpd_multi',
+            organizationId: 'org_1',
+            name: 'Labels',
+            key: 'labels',
+            type: 'multi_select',
+            displayOrder: 3,
+          },
+        ],
+        customPropertySelectOptions: [
+          {
+            id: 'cpso_invoice',
+            propertyDefinitionId: 'cpd_select',
+            name: 'Rechnung',
+            key: 'rechnung',
+            displayOrder: 0,
+          },
+          {
+            id: 'cpso_tax',
+            propertyDefinitionId: 'cpd_select',
+            name: 'steuer',
+            key: 'steuer',
+            displayOrder: 1,
+          },
+          { id: 'cpso_b', propertyDefinitionId: 'cpd_multi', name: 'b', key: 'b', displayOrder: 0 },
+          { id: 'cpso_c', propertyDefinitionId: 'cpd_multi', name: 'c', key: 'c', displayOrder: 1 },
+          { id: 'cpso_a', propertyDefinitionId: 'cpd_multi', name: 'a', key: 'a', displayOrder: 2 },
+        ],
+        documentCustomPropertyValues: [
+          {
+            id: 'dcpv_1',
+            documentId: 'doc_1',
+            propertyDefinitionId: 'cpd_text',
+            textValue: 'beta',
+          },
+          {
+            id: 'dcpv_2',
+            documentId: 'doc_2',
+            propertyDefinitionId: 'cpd_text',
+            textValue: 'Alpha',
+          },
+          {
+            id: 'dcpv_3',
+            documentId: 'doc_3',
+            propertyDefinitionId: 'cpd_text',
+            textValue: 'gamma',
+          },
+          // doc_4 has no sender
+
+          {
+            id: 'dcpv_4',
+            documentId: 'doc_1',
+            propertyDefinitionId: 'cpd_number',
+            numberValue: 10,
+          },
+          { id: 'dcpv_5', documentId: 'doc_2', propertyDefinitionId: 'cpd_number', numberValue: 2 },
+          { id: 'dcpv_6', documentId: 'doc_4', propertyDefinitionId: 'cpd_number', numberValue: 5 },
+
+          {
+            id: 'dcpv_7',
+            documentId: 'doc_1',
+            propertyDefinitionId: 'cpd_select',
+            selectOptionId: 'cpso_tax',
+          },
+          {
+            id: 'dcpv_8',
+            documentId: 'doc_2',
+            propertyDefinitionId: 'cpd_select',
+            selectOptionId: 'cpso_invoice',
+          },
+
+          {
+            id: 'dcpv_9',
+            documentId: 'doc_1',
+            propertyDefinitionId: 'cpd_multi',
+            selectOptionId: 'cpso_b',
+          },
+          {
+            id: 'dcpv_10',
+            documentId: 'doc_1',
+            propertyDefinitionId: 'cpd_multi',
+            selectOptionId: 'cpso_c',
+          },
+          {
+            id: 'dcpv_11',
+            documentId: 'doc_2',
+            propertyDefinitionId: 'cpd_multi',
+            selectOptionId: 'cpso_c',
+          },
+          {
+            id: 'dcpv_12',
+            documentId: 'doc_2',
+            propertyDefinitionId: 'cpd_multi',
+            selectOptionId: 'cpso_a',
+          },
+        ],
+      });
+
+      const documentsSearchRepository = createDocumentSearchRepository({ db });
+      await documentsSearchRepository.indexDocuments({ documents });
+
+      return { documentsSearchRepository };
+    };
+
+    const getSortedIds = async ({
+      field,
+      order,
+      pageIndex = 0,
+      pageSize = 10,
+    }: {
+      field: `customProperty:${string}`;
+      order: 'asc' | 'desc';
+      pageIndex?: number;
+      pageSize?: number;
+    }) => {
+      const { documentsSearchRepository } = await setupDb();
+      const { documents: results } = await documentsSearchRepository.searchOrganizationDocuments({
+        organizationId: 'org_1',
+        searchQuery: '',
+        pageIndex,
+        pageSize,
+        sort: { field, order },
+      });
+
+      return results.map((document) => document.id);
+    };
+
+    test('text values are sorted case-insensitively and documents without a value come last in both directions', async () => {
+      expect(await getSortedIds({ field: 'customProperty:sender', order: 'asc' })).to.eql([
+        'doc_2',
+        'doc_1',
+        'doc_3',
+        'doc_4',
+      ]);
+      expect(await getSortedIds({ field: 'customProperty:sender', order: 'desc' })).to.eql([
+        'doc_3',
+        'doc_1',
+        'doc_2',
+        'doc_4',
+      ]);
+    });
+
+    test('number values are sorted numerically', async () => {
+      expect(await getSortedIds({ field: 'customProperty:amount', order: 'asc' })).to.eql([
+        'doc_2',
+        'doc_4',
+        'doc_1',
+        'doc_3',
+      ]);
+      expect(await getSortedIds({ field: 'customProperty:amount', order: 'desc' })).to.eql([
+        'doc_1',
+        'doc_4',
+        'doc_2',
+        'doc_3',
+      ]);
+    });
+
+    test('select values are sorted by option name', async () => {
+      expect(await getSortedIds({ field: 'customProperty:kind', order: 'asc' })).to.eql([
+        'doc_2',
+        'doc_1',
+        'doc_4',
+        'doc_3',
+      ]);
+      expect(await getSortedIds({ field: 'customProperty:kind', order: 'desc' })).to.eql([
+        'doc_1',
+        'doc_2',
+        'doc_3',
+        'doc_4',
+      ]);
+    });
+
+    test('multi select values are sorted by their smallest option name, without duplicating documents', async () => {
+      // doc_1 has b and c, doc_2 has c and a
+      expect(await getSortedIds({ field: 'customProperty:labels', order: 'asc' })).to.eql([
+        'doc_2',
+        'doc_1',
+        'doc_4',
+        'doc_3',
+      ]);
+      expect(await getSortedIds({ field: 'customProperty:labels', order: 'desc' })).to.eql([
+        'doc_1',
+        'doc_2',
+        'doc_3',
+        'doc_4',
+      ]);
+    });
+
+    test('the sort holds across pages', async () => {
+      expect(
+        await getSortedIds({
+          field: 'customProperty:sender',
+          order: 'asc',
+          pageIndex: 1,
+          pageSize: 2,
+        }),
+      ).to.eql(['doc_3', 'doc_4']);
+    });
+
+    test('an unknown property falls back to the default sort field', async () => {
+      expect(await getSortedIds({ field: 'customProperty:unknown', order: 'asc' })).to.eql([
+        'doc_4',
+        'doc_3',
+        'doc_2',
+        'doc_1',
+      ]);
+    });
+  });
 });

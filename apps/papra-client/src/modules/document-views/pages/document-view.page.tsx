@@ -4,6 +4,7 @@ import { safely } from '@corentinth/chisels';
 import { useNavigate, useParams } from '@solidjs/router';
 import { keepPreviousData, useQuery } from '@tanstack/solid-query';
 import { createSignal, Show, Suspense } from 'solid-js';
+import { makeDocumentsFilterHref } from '@/modules/custom-properties/custom-property-filter.models';
 import { DocumentQuickLook } from '@/modules/documents/components/document-quick-look.component';
 import { DocumentsViewToggle } from '@/modules/documents/components/documents-view-toggle.component';
 import {
@@ -17,6 +18,7 @@ import {
   createDocumentsKeyboardNavigation,
   getDocumentElement,
 } from '@/modules/documents/documents-keyboard.composables';
+import { createDocumentsSorting } from '@/modules/documents/documents-sorting.composables';
 import { createDocumentsViewPreference } from '@/modules/documents/documents-view-preference.composables';
 import { getSingleTagFromSearchQuery } from '@/modules/documents/documents-view-preference.models';
 import { fetchOrganizationDocuments } from '@/modules/documents/documents.services';
@@ -43,6 +45,7 @@ export const DocumentViewPage: Component = () => {
   const { confirm } = useConfirmModal();
   const { getErrorMessage } = useI18nApiErrors({ t });
   const [getPagination, setPagination] = createParamSynchronizedPagination();
+  const { getSortField, getSortOrder, getSorting, setSorting } = createDocumentsSorting();
   const [getIsUpdateOpen, setIsUpdateOpen] = createSignal(false);
   const [getQuickLookId, setQuickLookId] = createSignal<string>();
 
@@ -102,11 +105,15 @@ export const DocumentViewPage: Component = () => {
       params.documentViewId,
       documentViewQuery.data?.documentView?.query ?? '',
       getPagination(),
+      getSortField(),
+      getSortOrder(),
     ],
     queryFn: async () =>
       fetchOrganizationDocuments({
         organizationId: params.organizationId,
         searchQuery: documentViewQuery.data?.documentView?.query ?? '',
+        sortField: getSortField(),
+        sortOrder: getSortOrder(),
         ...getPagination(),
       }),
     enabled: Boolean(documentViewQuery.data?.documentView),
@@ -208,9 +215,18 @@ export const DocumentViewPage: Component = () => {
                     documentsCount={getData().documentsCount}
                     getPagination={getPagination}
                     setPagination={setPagination}
+                    getSorting={getSorting}
+                    setSorting={setSorting}
                     view={viewPreference.getView()}
                     focusedDocumentId={keyboardNavigation.getFocusedId()}
                     onQuickLook={openQuickLook}
+                    getCustomPropertyFilterHref={(term) =>
+                      makeDocumentsFilterHref({
+                        organizationId: params.organizationId,
+                        query: getViewQuery(),
+                        term,
+                      })
+                    }
                     extraColumns={[
                       tagsColumn,
                       documentDateColumn,

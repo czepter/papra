@@ -1,35 +1,41 @@
 import type { ColumnDef } from '@tanstack/solid-table';
 import type { Document } from '@/modules/documents/documents.types';
-import type { CustomPropertyDisplayLabels } from './custom-property-display.models';
-import {
-  formatCustomPropertyValue,
-  getCustomPropertyColumnDefinitions,
+import type {
+  CustomPropertyColumnDefinition,
+  CustomPropertyDisplayLabels,
 } from './custom-property-display.models';
+import { getCustomPropertySortField } from '@/modules/documents/document.models';
+import { CustomPropertyValueLinks } from './components/custom-property-value-links.component';
+import { getCustomPropertyValueItems } from './custom-property-display.models';
 
-// Columns follow the data: only properties set on at least one document of the page get one
+// The column id is the sort field, so the table sorting maps straight to the API
 export function createCustomPropertyColumns({
-  documents,
+  definitions,
   labels,
+  getFilterHref,
 }: {
-  documents: Document[];
+  definitions: CustomPropertyColumnDefinition[];
   labels: CustomPropertyDisplayLabels;
+  // Values link to this href when provided
+  getFilterHref?: (term: string) => string;
 }): ColumnDef<Document>[] {
-  return getCustomPropertyColumnDefinitions({ documents, labels }).map(
-    ({ key, name }): ColumnDef<Document> => ({
-      id: `custom-property-${key}`,
-      header: () => <span class="hidden sm:block">{name}</span>,
-      accessorFn: (document) => document.customProperties?.find((property) => property.key === key),
-      enableSorting: false,
-      cell: (data) => {
-        const property = data.getValue<NonNullable<Document['customProperties']>[number]>();
-        const text = property ? formatCustomPropertyValue({ property, labels }) : undefined;
+  return definitions.map(({ key, name }): ColumnDef<Document> => ({
+    id: getCustomPropertySortField({ key }),
+    header: () => <span class="hidden sm:block">{name}</span>,
+    accessorFn: (document) => document.customProperties?.find((property) => property.key === key),
+    enableSorting: true,
+    cell: (data) => {
+      const property = data.getValue<NonNullable<Document['customProperties']>[number]>();
+      const items = property ? getCustomPropertyValueItems({ property, labels }) : [];
 
-        return (
-          <span class="text-muted-foreground hidden sm:block max-w-48 truncate" title={text}>
-            {text}
-          </span>
-        );
-      },
-    }),
-  );
+      return (
+        <span
+          class="text-muted-foreground hidden sm:block max-w-48 truncate"
+          title={items.map(({ text }) => text).join(', ')}
+        >
+          <CustomPropertyValueLinks items={items} getFilterHref={getFilterHref} />
+        </span>
+      );
+    },
+  }));
 }

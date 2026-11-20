@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   formatCustomPropertyValue,
   getCustomPropertyColumnDefinitions,
+  getCustomPropertyValueItems,
   getDocumentCustomPropertyDisplayValues,
 } from './custom-property-display.models';
 
@@ -71,6 +72,52 @@ describe('custom-property-display models', () => {
     });
   });
 
+  describe('getCustomPropertyValueItems', () => {
+    const items = (type: string, value: unknown, key = 'k') =>
+      getCustomPropertyValueItems({ property: { key, type: type as any, value }, labels });
+
+    test('scalar types filter on their raw value', () => {
+      expect(items('text', 'Finanzamt Jena', 'korrespondent')).to.eql([
+        { text: 'Finanzamt Jena', filterTerm: 'korrespondent:"Finanzamt Jena"' },
+      ]);
+      expect(items('number', 12.5)).to.eql([{ text: '12.5', filterTerm: 'k:12.5' }]);
+      expect(items('boolean', false)).to.eql([{ text: 'No', filterTerm: 'k:false' }]);
+      expect(items('date', '2026-03-01T00:00:00.000Z')).to.eql([
+        { text: '2026-03-01', filterTerm: 'k:"2026-03-01T00:00:00.000Z"' },
+      ]);
+    });
+
+    test('select values filter on the option name', () => {
+      expect(items('select', { optionId: 'o1', name: 'Rechnung' }, 'dokumenttyp')).to.eql([
+        { text: 'Rechnung', filterTerm: 'dokumenttyp:Rechnung' },
+      ]);
+    });
+
+    test('multi value types get one item per value', () => {
+      expect(
+        items('multi_select', [
+          { optionId: 'o1', name: 'Red' },
+          { optionId: 'o2', name: 'Dark Blue' },
+        ]),
+      ).to.eql([
+        { text: 'Red', filterTerm: 'k:Red' },
+        { text: 'Dark Blue', filterTerm: 'k:"Dark Blue"' },
+      ]);
+      expect(
+        items('user_relation', [{ userId: 'usr_1', name: 'Ada', email: 'ada@example.com' }]),
+      ).to.eql([{ text: 'Ada', filterTerm: 'k:usr_1' }]);
+      expect(items('document_relation', [{ documentId: 'doc_1', name: 'Other doc' }])).to.eql([
+        { text: 'Other doc', filterTerm: 'k:doc_1' },
+      ]);
+    });
+
+    test('empty values have no item', () => {
+      expect(items('text', '')).to.eql([]);
+      expect(items('select', null)).to.eql([]);
+      expect(items('multi_select', [])).to.eql([]);
+    });
+  });
+
   describe('getDocumentCustomPropertyDisplayValues', () => {
     test('skips empty values and orders by displayOrder', () => {
       const result = getDocumentCustomPropertyDisplayValues({
@@ -112,6 +159,19 @@ describe('custom-property-display models', () => {
       });
 
       expect(result.map(({ key }) => key)).to.eql(['b', 'c']);
+    });
+
+    test('keeps pinned properties even without values, without duplicating the ones with values', () => {
+      const result = getCustomPropertyColumnDefinitions({
+        documents: [{ customProperties: [property({ key: 'b', value: 'x', displayOrder: 1 })] }],
+        labels,
+        pinnedDefinitions: [
+          { key: 'a', name: 'A', type: 'text', displayOrder: 0 },
+          { key: 'b', name: 'B', type: 'text', displayOrder: 1 },
+        ],
+      });
+
+      expect(result.map(({ key }) => key)).to.eql(['a', 'b']);
     });
   });
 });
