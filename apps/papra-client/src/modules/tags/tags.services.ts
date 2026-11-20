@@ -134,3 +134,17 @@ export async function unpinTag({
     method: 'DELETE',
   });
 }
+
+export async function reorderPinnedTags({
+  organizationId,
+  tagIds,
+}: {
+  organizationId: string;
+  tagIds: string[];
+}) {
+  await apiClient({
+    path: `/api/organizations/${organizationId}/tags/pinned/order`,
+    method: 'PUT',
+    body: { tagIds },
+  });
+}
