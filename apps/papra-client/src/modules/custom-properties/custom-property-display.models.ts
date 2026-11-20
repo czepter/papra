@@ -75,15 +75,23 @@ export function getDocumentCustomPropertyDisplayValues({
     });
 }
 
-// Properties worth a column: those with a value on at least one of the documents
+export type CustomPropertyColumnDefinition = Pick<
+  DocumentCustomProperty,
+  'key' | 'name' | 'type' | 'displayOrder'
+>;
+
+// Properties worth a column: those with a value on at least one of the documents,
+// plus the pinned ones (e.g. the property the list is sorted by) that must stay reachable without values
 export function getCustomPropertyColumnDefinitions({
   documents,
   labels,
+  pinnedDefinitions = [],
 }: {
   documents: Pick<Document, 'customProperties'>[];
   labels: CustomPropertyDisplayLabels;
-}) {
-  const definitionsByKey = new Map<string, { key: string; name: string; displayOrder: number }>();
+  pinnedDefinitions?: CustomPropertyColumnDefinition[];
+}): CustomPropertyColumnDefinition[] {
+  const definitionsByKey = new Map<string, CustomPropertyColumnDefinition>();
 
   for (const document of documents) {
     for (const property of document.customProperties ?? []) {
@@ -94,9 +102,16 @@ export function getCustomPropertyColumnDefinitions({
         definitionsByKey.set(property.key, {
           key: property.key,
           name: property.name,
+          type: property.type,
           displayOrder: property.displayOrder,
         });
       }
+    }
+  }
+
+  for (const definition of pinnedDefinitions) {
+    if (!definitionsByKey.has(definition.key)) {
+      definitionsByKey.set(definition.key, definition);
     }
   }
 

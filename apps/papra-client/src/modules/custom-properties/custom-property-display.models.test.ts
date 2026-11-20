@@ -113,5 +113,18 @@ describe('custom-property-display models', () => {
 
       expect(result.map(({ key }) => key)).to.eql(['b', 'c']);
     });
+
+    test('keeps pinned properties even without values, without duplicating the ones with values', () => {
+      const result = getCustomPropertyColumnDefinitions({
+        documents: [{ customProperties: [property({ key: 'b', value: 'x', displayOrder: 1 })] }],
+        labels,
+        pinnedDefinitions: [
+          { key: 'a', name: 'A', type: 'text', displayOrder: 0 },
+          { key: 'b', name: 'B', type: 'text', displayOrder: 1 },
+        ],
+      });
+
+      expect(result.map(({ key }) => key)).to.eql(['a', 'b']);
+    });
   });
 });
