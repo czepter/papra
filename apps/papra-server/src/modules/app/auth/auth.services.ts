@@ -7,10 +7,18 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { genericOAuth, twoFactor } from 'better-auth/plugins';
 import { getServerBaseUrl } from '../../config/config.models';
+import { buildMcpOauthPlugins } from '../../mcp/mcp.oauth';
 import { createLogger } from '../../shared/logger/logger';
 import { usersTable } from '../../users/users.table';
 import { createForbiddenEmailDomainError } from './auth.errors';
 import { getTrustedOrigins, isEmailDomainAllowed } from './auth.models';
+import {
+  jwksTable,
+  oauthAccessTokensTable,
+  oauthClientsTable,
+  oauthConsentsTable,
+  oauthRefreshTokensTable,
+} from './auth.oauth.tables';
 import { accountsTable, sessionsTable, twoFactorTable, verificationsTable } from './auth.tables';
 
 export type Auth = ReturnType<typeof getAuth>['auth'];
@@ -75,6 +83,11 @@ export function getAuth({
         session: sessionsTable,
         verification: verificationsTable,
         twoFactor: twoFactorTable,
+        oauthClient: oauthClientsTable,
+        oauthAccessToken: oauthAccessTokensTable,
+        oauthRefreshToken: oauthRefreshTokensTable,
+        oauthConsent: oauthConsentsTable,
+        jwks: jwksTable,
       },
     }),
 
@@ -146,6 +159,9 @@ export function getAuth({
             }),
           ]
         : []),
+
+      // OAuth 2.1 authorization server for MCP clients, only when the MCP server is enabled
+      ...(config.mcp.enabled ? buildMcpOauthPlugins({ config }) : []),
     ],
   });
 

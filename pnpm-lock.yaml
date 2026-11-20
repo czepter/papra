@@ -711,6 +711,9 @@ importers:
       hono-rate-limiter:
         specifier: ^0.5.4
         version: 0.5.4(hono@4.13.5)(unstorage@1.17.5(@azure/storage-blob@12.27.0(supports-color@10.2.2))(idb-keyval@6.2.1))
+      jose:
+        specifier: 6.2.3
+        version: 6.2.3
       mime-types:
         specifier: ^3.0.1
         version: 3.0.2

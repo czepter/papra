@@ -23,5 +23,14 @@ describe('static-assets models', () => {
       expect(isBackendRoute({ path: '/mcpx' })).to.equal(false);
       expect(isBackendRoute({ path: '/settings' })).to.equal(false);
     });
+
+    test('everything under /.well-known is a backend route, so discovery documents never fall back to the SPA', () => {
+      expect(isBackendRoute({ path: '/.well-known' })).to.equal(true);
+      expect(isBackendRoute({ path: '/.well-known/oauth-protected-resource/mcp' })).to.equal(true);
+      expect(isBackendRoute({ path: '/.well-known/unknown' })).to.equal(true);
+
+      expect(isBackendRoute({ path: '/.well-knownx' })).to.equal(false);
+      expect(isBackendRoute({ path: '/well-known/x' })).to.equal(false);
+    });
   });
 });

@@ -6,21 +6,27 @@ import { getApiKey } from '../api-keys/api-keys.usecases';
 
 export const MCP_API_KEY_CLIENT_ID = 'papra-api-key';
 
+export type McpAuthType = 'api-key' | 'oauth';
+
 export function buildAuthInfo({
   userId,
   apiKeyId,
+  clientId = MCP_API_KEY_CLIENT_ID,
   permissions,
+  authType = 'api-key',
 }: {
   userId: string;
-  apiKeyId: string;
+  apiKeyId?: string;
+  clientId?: string;
   permissions: string[];
+  authType?: McpAuthType;
 }): AuthInfo {
   return {
     // The raw token is deliberately not kept: nothing downstream needs it, and it must never end up in logs.
     token: '',
-    clientId: MCP_API_KEY_CLIENT_ID,
+    clientId,
     scopes: permissions,
-    extra: { userId, apiKeyId },
+    extra: { userId, authType, ...(apiKeyId === undefined ? {} : { apiKeyId }) },
   };
 }
 

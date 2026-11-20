@@ -11,6 +11,8 @@ import { overrideConfig } from '../config/config.test-utils';
 
 const tokenOf = (letter: string) => `ppapi_${letter.repeat(64)}`;
 
+const RESOURCE_METADATA_URL = 'http://localhost:1221/.well-known/oauth-protected-resource/mcp';
+
 const tokens = {
   aliceWithRead: tokenOf('a'),
   aliceWithoutRead: tokenOf('b'),
@@ -137,14 +139,15 @@ const callTool = (name: string) => ({
 
 describe('mcp routes', () => {
   describe('authentication', () => {
-    test('a request without credentials gets a 401 with a plain bearer challenge', async () => {
+    test('a request without credentials gets a 401 with a bearer challenge pointing at the protected resource metadata', async () => {
       const { app } = await setup();
 
       const response = await callMcp({ app, body: initializeBody });
 
       expect(response.status).to.eql(401);
-      expect(response.headers.get('www-authenticate')).to.eql('Bearer realm="papra"');
-      expect(response.headers.get('www-authenticate')).not.to.include('resource_metadata');
+      expect(response.headers.get('www-authenticate')).to.eql(
+        `Bearer realm="papra", resource_metadata="${RESOURCE_METADATA_URL}"`,
+      );
       expect(await response.json()).to.eql({
         error: { message: 'Unauthorized', code: 'auth.unauthorized' },
       });
@@ -157,7 +160,9 @@ describe('mcp routes', () => {
         const response = await callMcp({ app, token, body: initializeBody });
 
         expect(response.status, token).to.eql(401);
-        expect(response.headers.get('www-authenticate')).not.to.include('resource_metadata');
+        expect(response.headers.get('www-authenticate')).to.eql(
+          `Bearer realm="papra", error="invalid_token", resource_metadata="${RESOURCE_METADATA_URL}"`,
+        );
       }
     });
 
@@ -415,9 +420,21 @@ describe('mcp routes', () => {
 
         expect(response.status).to.eql(401);
         expect(response.headers.get('www-authenticate')).to.include('Bearer');
-        expect(response.headers.get('www-authenticate')).not.to.include('resource_metadata');
+        expect(response.headers.get('www-authenticate')).to.include('resource_metadata');
         expect(await response.text()).not.to.include('<html');
       }
+    });
+
+    test('/.well-known paths are not swallowed by the SPA fallback: metadata is json, unknown paths are a plain 404', async () => {
+      const { app } = await setup({ config: { server: { servePublicDir: true } } });
+
+      const metadata = await app.request('/.well-known/oauth-protected-resource/mcp');
+      expect(metadata.status).to.eql(200);
+      expect(metadata.headers.get('content-type')).to.include('application/json');
+
+      const unknown = await app.request('/.well-known/unknown');
+      expect(unknown.status).to.eql(404);
+      expect(await unknown.text()).not.to.include('<html');
     });
 
     test('when the mcp server is disabled, /mcp answers 404 and not the SPA page', async () => {
