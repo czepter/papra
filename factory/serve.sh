@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Usage: factory/serve.sh <worktree> <port>
+# Usage: [MCP_SERVER_ENABLED=false] [APP_BASE_URL=...] factory/serve.sh <worktree> <port>
+# State is keyed by port, so several instances of one worktree can run side by side.
 # Serves API and built client on <port> only (the server serves the client from ./public).
 set -euo pipefail
 WORKTREE="$(cd "$1" && pwd)"
 PORT="$2"
 export PATH="$HOME/.nvm/versions/node/v26.13.0/bin:$PATH"
 PNPM="npx -y pnpm@12.4.2"
-RUN="${TMPDIR:-/tmp}/papra-factory-serve/$(basename "$WORKTREE")"
+RUN="${TMPDIR:-/tmp}/papra-factory-serve/$(basename "$WORKTREE")-$PORT"
 SERVER="$WORKTREE/apps/papra-server"
 EMAIL="demo@example.com"
 PASSWORD="factory-demo-1234"
 
-"$WORKTREE/factory/stop.sh" "$WORKTREE" >/dev/null 2>&1 || true
+"$WORKTREE/factory/stop.sh" "$WORKTREE" "$PORT" >/dev/null 2>&1 || true
 mkdir -p "$RUN/documents"
 
 cd "$WORKTREE"
@@ -20,7 +21,9 @@ $PNPM build:packages >&2
 $PNPM --filter "@papra/app-client..." run build >&2
 rm -rf "$RUN/public" && cp -R "$WORKTREE/apps/papra-client/dist" "$RUN/public"
 
-export PORT APP_BASE_URL="http://localhost:$PORT" SERVER_SERVE_PUBLIC_DIR=true
+BASE_URL="${APP_BASE_URL:-http://localhost:$PORT}"
+ORIGIN="$(echo "$BASE_URL" | sed -E 's#^(https?://[^/]+).*#\1#')"
+export PORT APP_BASE_URL="$BASE_URL" SERVER_SERVE_PUBLIC_DIR=true
 export DATABASE_URL="file:$RUN/db.sqlite" DOCUMENT_STORAGE_FILESYSTEM_ROOT="$RUN/documents"
 export AUTH_SECRET="factory-serve-secret-0123456789abcdef0123456789"
 export EMAILS_DRY_RUN=true BETTER_AUTH_TELEMETRY=0
@@ -40,11 +43,11 @@ done
 curl -sf "http://localhost:$PORT/api/ping" >/dev/null || { tail -20 "$RUN/server.log" >&2; exit 1; }
 
 curl -sf -c "$RUN/cookies" -X POST "http://localhost:$PORT/api/auth/sign-up/email" \
-  -H 'content-type: application/json' -H "origin: http://localhost:$PORT" \
+  -H 'content-type: application/json' -H "origin: $ORIGIN" \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"name\":\"Demo\"}" >/dev/null
 # Best effort: one organization so the app opens on a usable screen.
 curl -sf -b "$RUN/cookies" -X POST "http://localhost:$PORT/api/organizations" \
-  -H 'content-type: application/json' -H "origin: http://localhost:$PORT" \
+  -H 'content-type: application/json' -H "origin: $ORIGIN" \
   -d '{"name":"Demo Org"}' >/dev/null || true
 
 echo "Sign in with $EMAIL / $PASSWORD. MCP settings: http://localhost:$PORT/mcp-settings. Logs: $RUN/server.log"

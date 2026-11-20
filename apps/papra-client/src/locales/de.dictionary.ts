@@ -978,7 +978,7 @@ export const translations: Partial<TranslationsDictionary> = {
     'Der API-Schlüssel wurde erfolgreich erstellt. Speichern Sie ihn an einem sicheren Ort, da er nicht erneut angezeigt wird.',
   'mcp-settings.title': 'MCP',
   'mcp-settings.description':
-    'Verbinde KI-Assistenten und andere MCP-Clients mit deinem Papra-Konto.',
+    'Verbinden Sie KI-Assistenten und andere MCP-Clients mit Ihrem Papra-Konto.',
   'mcp-settings.status.label': 'MCP-Server',
   'mcp-settings.status.enabled': 'Aktiviert',
   'mcp-settings.status.disabled': 'Deaktiviert',
@@ -987,13 +987,14 @@ export const translations: Partial<TranslationsDictionary> = {
   'mcp-settings.url.label': 'Server-URL',
   'mcp-settings.url.copy': 'Kopieren',
   'mcp-settings.url.copied': 'Kopiert!',
-  'mcp-settings.instructions.title': 'So verbindest du dich',
+  'mcp-settings.instructions.title': 'So verbinden Sie sich',
   'mcp-settings.instructions.step-create-key':
-    'Erstelle einen API-Schlüssel mit der Berechtigung organizations:read.',
+    'Erstellen Sie einen API-Schlüssel mit der Berechtigung organizations:read.',
   'mcp-settings.instructions.api-keys-link': 'Zu den API-Schlüsseln',
-  'mcp-settings.instructions.step-add-url': 'Trage die obige Server-URL in deinem MCP-Client ein.',
+  'mcp-settings.instructions.step-add-url':
+    'Tragen Sie die obige Server-URL in Ihrem MCP-Client ein.',
   'mcp-settings.instructions.step-send-key':
-    'Konfiguriere den Client so, dass er den Schlüssel als Header "Authorization: Bearer <Schlüssel>" sendet.',
+    'Konfigurieren Sie den Client so, dass er den Schlüssel als Header "Authorization: Bearer <Schlüssel>" sendet.',
   'api-keys.list.title': 'API-Schlüssel',
   'api-keys.list.description': 'Verwalten Sie hier Ihre API-Schlüssel.',
   'api-keys.list.create': 'API-Schlüssel erstellen',
