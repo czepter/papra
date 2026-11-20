@@ -4,7 +4,6 @@ import {
   defaultDocumentsViewPreferences,
   getSingleTagFromSearchQuery,
   hasTagViewOverride,
-  parseStoredDocumentsViewPreferences,
   resolveDocumentsView,
   setDocumentsView,
 } from './documents-view-preference.models';
@@ -79,34 +78,6 @@ describe('documents-view-preference models', () => {
           view: 'grid',
         }),
       ).toEqual({ defaultView: 'grid', tagViews: { other: 'list' } });
-    });
-  });
-
-  describe('parseStoredDocumentsViewPreferences', () => {
-    test('falls back to the defaults for missing or corrupted values', () => {
-      expect(parseStoredDocumentsViewPreferences({ raw: null })).toEqual(
-        defaultDocumentsViewPreferences,
-      );
-      expect(parseStoredDocumentsViewPreferences({ raw: 'not json' })).toEqual(
-        defaultDocumentsViewPreferences,
-      );
-      expect(parseStoredDocumentsViewPreferences({ raw: '42' })).toEqual(
-        defaultDocumentsViewPreferences,
-      );
-    });
-
-    test('keeps valid values and drops invalid ones', () => {
-      expect(
-        parseStoredDocumentsViewPreferences({
-          raw: JSON.stringify({ defaultView: 'grid', tagViews: { a: 'list', b: 'masonry' } }),
-        }),
-      ).toEqual({ defaultView: 'grid', tagViews: { a: 'list' } });
-
-      expect(
-        parseStoredDocumentsViewPreferences({
-          raw: JSON.stringify({ defaultView: 'nope', tagViews: 'x' }),
-        }),
-      ).toEqual(defaultDocumentsViewPreferences);
     });
   });
 });

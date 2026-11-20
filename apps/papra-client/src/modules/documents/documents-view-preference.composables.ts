@@ -1,31 +1,23 @@
 import type { Accessor } from 'solid-js';
 import type { DocumentsView, DocumentsViewPreferences } from './documents-view-preference.models';
-import { createMemo } from 'solid-js';
+import { useMutation, useQuery } from '@tanstack/solid-query';
 import { useI18n } from '../i18n/i18n.provider';
-import { buildLocalStorageKey } from '../shared/signals/persistence/persistence.models';
-import { createPersistedSignal } from '../shared/signals/persistence/persistence.signals';
+import { useI18nApiErrors } from '../shared/http/composables/i18n-api-errors';
+import { queryClient } from '../shared/query/query-client';
 import { createToast } from '../ui/components/sonner';
 import { useCurrentUser } from '../users/composables/useCurrentUser';
 import {
   applyViewEverywhere,
   defaultDocumentsViewPreferences,
   hasTagViewOverride,
-  parseStoredDocumentsViewPreferences,
   removeTagViewOverride,
   resolveDocumentsView,
   setDocumentsView,
 } from './documents-view-preference.models';
-
-// Stored per user and organization, only in this browser
-export function buildDocumentsViewPreferencesStorageKey({
-  userId,
-  organizationId,
-}: {
-  userId: string;
-  organizationId: string;
-}) {
-  return buildLocalStorageKey('documents-view', userId, organizationId);
-}
+import {
+  fetchDocumentsViewPreferences,
+  saveDocumentsViewPreferences,
+} from './documents-view-preference.services';
 
 // `getTagName` is the tag the documents are currently filtered by (only when it is the single filter)
 export function createDocumentsViewPreference({
@@ -36,34 +28,78 @@ export function createDocumentsViewPreference({
   getTagName: Accessor<string | undefined>;
 }) {
   const { t } = useI18n();
+  const { getErrorMessage } = useI18nApiErrors();
   const { user } = useCurrentUser();
 
-  const getKey = createMemo(() =>
-    buildDocumentsViewPreferencesStorageKey({
-      userId: user.id,
-      organizationId: getOrganizationId(),
-    }),
-  );
+  // Stored on the server per user and organization, so it follows the user across devices
+  const getQueryOptions = () => {
+    const organizationId = getOrganizationId();
 
-  // The key changing (organization switch) creates a new persisted signal that loads the preferences of the new key
-  const getPersistedSignal = createMemo(() =>
-    createPersistedSignal<DocumentsViewPreferences>(defaultDocumentsViewPreferences, {
-      key: getKey(),
-      deserialize: (raw) => parseStoredDocumentsViewPreferences({ raw }),
-    }),
-  );
+    return {
+      queryKey: ['documents-view-preferences', user.id, organizationId],
+      queryFn: async () => (await fetchDocumentsViewPreferences({ organizationId })).preferences,
+    };
+  };
 
-  const getPreferences = () => getPersistedSignal()[0]();
+  const query = useQuery(() => getQueryOptions());
+
+  // The default view is displayed until the stored preferences are loaded
+  const getPreferences = (): DocumentsViewPreferences =>
+    query.data ?? defaultDocumentsViewPreferences;
+
+  const saveMutation = useMutation(() => ({
+    // Saves are sent one after the other so the last one wins on the server
+    scope: { id: `documents-view-preferences:${user.id}:${getOrganizationId()}` },
+    mutationFn: async ({
+      organizationId,
+      preferences,
+    }: {
+      organizationId: string;
+      preferences: DocumentsViewPreferences;
+    }) => saveDocumentsViewPreferences({ organizationId, preferences }),
+    // Optimistic update, the toggle is instant
+    onMutate: async ({ organizationId, preferences }) => {
+      const queryKey = ['documents-view-preferences', user.id, organizationId];
+
+      await queryClient.cancelQueries({ queryKey });
+      const previousPreferences = queryClient.getQueryData<DocumentsViewPreferences>(queryKey);
+      queryClient.setQueryData(queryKey, preferences);
+
+      return { queryKey, previousPreferences };
+    },
+    onError: (error, _variables, context) => {
+      if (context) {
+        queryClient.setQueryData(context.queryKey, context.previousPreferences);
+      }
+
+      createToast({ message: getErrorMessage({ error }), type: 'error' });
+    },
+  }));
 
   const savePreferences = (preferences: DocumentsViewPreferences) => {
-    getPersistedSignal()[1](preferences);
+    saveMutation.mutate({ organizationId: getOrganizationId(), preferences });
   };
 
   const getViewLabel = (view: DocumentsView) => t(`documents.view.${view}`);
 
-  const setView = (view: DocumentsView) => {
-    const preferences = getPreferences();
+  // Without the stored preferences, saving would overwrite them with the defaults
+  const loadPreferences = async () => {
+    try {
+      return await queryClient.ensureQueryData(getQueryOptions());
+    } catch (error) {
+      createToast({ message: getErrorMessage({ error }), type: 'error' });
+
+      return undefined;
+    }
+  };
+
+  const setView = async (view: DocumentsView) => {
     const tagName = getTagName();
+    const preferences = await loadPreferences();
+
+    if (!preferences) {
+      return;
+    }
 
     const nextPreferences = setDocumentsView({ preferences, tagName, view });
     savePreferences(nextPreferences);
