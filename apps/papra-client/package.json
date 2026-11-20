@@ -23,6 +23,7 @@
     "script:generate-demo-documents-fixtures": "tsx src/scripts/generate-demo-documents-fixtures.script.ts"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "catalog:",
     "@branchlet/core": "^1.0.0",
     "@corentinth/chisels": "catalog:",
     "@corvu/calendar": "^0.1.2",
@@ -36,7 +37,6 @@
     "@solidjs/router": "^0.14.10",
     "@tanstack/solid-query": "^5.90.3",
     "@tanstack/solid-table": "^8.21.3",
-    "@better-auth/oauth-provider": "catalog:",
     "better-auth": "catalog:",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

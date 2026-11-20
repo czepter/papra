@@ -6,10 +6,7 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { jwt } from 'better-auth/plugins';
 import { and, eq } from 'drizzle-orm';
 import { createLocalJWKSet, decodeProtectedHeader, jwtVerify } from 'jose';
-import {
-  oauthClientsTable,
-  oauthConsentsTable,
-} from '../app/auth/auth.oauth.tables';
+import { oauthClientsTable, oauthConsentsTable } from '../app/auth/auth.oauth.tables';
 import { usersTable } from '../users/users.table';
 import { createLogger } from '../shared/logger/logger';
 import {
@@ -72,6 +69,8 @@ export function buildMcpOauthPlugins({ config }: { config: Config }) {
       scopes: MCP_OAUTH_SCOPES,
       validAudiences: [resource],
       allowDynamicClientRegistration: true,
+      // The consent page verifies the signed authorization request this way before it shows the client
+      allowPublicClientPrelogin: true,
       allowUnauthenticatedClientRegistration: true,
       grantTypes: ['authorization_code', 'refresh_token'],
       accessTokenExpiresIn: MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS,
@@ -91,7 +90,9 @@ type OauthAuth = {
 };
 
 export function getAuthServerMetadataHandler({ auth }: { auth: unknown }) {
-  return oauthProviderAuthServerMetadata(auth as Parameters<typeof oauthProviderAuthServerMetadata>[0]);
+  return oauthProviderAuthServerMetadata(
+    auth as Parameters<typeof oauthProviderAuthServerMetadata>[0],
+  );
 }
 
 // Verifies an OAuth access token presented to /mcp: signature (local JWKS, no HTTP call), expiry, issuer and
@@ -110,7 +111,10 @@ export function buildVerifyOauthAccessToken({
   return async ({ token }: { token: string }): Promise<{ authInfo: AuthInfo | undefined }> => {
     try {
       // A JWT only: opaque tokens (issued when no resource is requested) carry no audience
-      if (token.split('.').length !== 3 || decodeProtectedHeader(token).alg !== ACCESS_TOKEN_ALGORITHM) {
+      if (
+        token.split('.').length !== 3 ||
+        decodeProtectedHeader(token).alg !== ACCESS_TOKEN_ALGORITHM
+      ) {
         return { authInfo: undefined };
       }
 
@@ -147,7 +151,9 @@ export function buildVerifyOauthAccessToken({
       const [consent] = await db
         .select({ id: oauthConsentsTable.id })
         .from(oauthConsentsTable)
-        .where(and(eq(oauthConsentsTable.clientId, clientId), eq(oauthConsentsTable.userId, userId)));
+        .where(
+          and(eq(oauthConsentsTable.clientId, clientId), eq(oauthConsentsTable.userId, userId)),
+        );
 
       if (!user || !client || client.disabled || !consent) {
         return { authInfo: undefined };
@@ -160,7 +166,10 @@ export function buildVerifyOauthAccessToken({
       };
     } catch (error) {
       // Expired, malformed or wrongly signed tokens end up here. Never log the token itself.
-      logger.debug({ errorName: error instanceof Error ? error.name : 'unknown' }, 'OAuth access token rejected');
+      logger.debug(
+        { errorName: error instanceof Error ? error.name : 'unknown' },
+        'OAuth access token rejected',
+      );
 
       return { authInfo: undefined };
     }

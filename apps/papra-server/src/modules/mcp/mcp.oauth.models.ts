@@ -130,9 +130,7 @@ export function validateClientRegistrationBody({ body }: { body: unknown }) {
     };
   }
 
-  if (
-    !redirectUris.every((uri) => typeof uri === 'string' && isAllowedRedirectUri({ uri }))
-  ) {
+  if (!redirectUris.every((uri) => typeof uri === 'string' && isAllowedRedirectUri({ uri }))) {
     return {
       error: 'invalid_redirect_uri',
       description:
@@ -145,7 +143,9 @@ export function validateClientRegistrationBody({ body }: { body: unknown }) {
     postLogoutRedirectUris !== undefined &&
     (!Array.isArray(postLogoutRedirectUris) ||
       postLogoutRedirectUris.length > MCP_OAUTH_REGISTRATION_MAX_REDIRECT_URIS ||
-      !postLogoutRedirectUris.every((uri) => typeof uri === 'string' && isAllowedRedirectUri({ uri })))
+      !postLogoutRedirectUris.every(
+        (uri) => typeof uri === 'string' && isAllowedRedirectUri({ uri }),
+      ))
   ) {
     return {
       error: 'invalid_client_metadata',

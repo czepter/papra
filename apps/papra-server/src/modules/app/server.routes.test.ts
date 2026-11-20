@@ -50,6 +50,12 @@ describe('server routes', () => {
       'GET /api/share-links/:shareLinkToken/document',
       'POST /api/share-links/:shareLinkToken/verify',
       'GET /api/share-links/:shareLinkToken/document/file',
+
+      // OAuth discovery documents, public by design (RFC 8414 and RFC 9728)
+      'GET /.well-known/oauth-authorization-server',
+      'GET /.well-known/oauth-authorization-server/api/auth',
+      'GET /.well-known/oauth-protected-resource',
+      'GET /.well-known/oauth-protected-resource/mcp',
     ];
 
     // Excluding auth routes that are managed by better-auth

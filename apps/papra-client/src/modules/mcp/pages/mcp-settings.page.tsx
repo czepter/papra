@@ -56,15 +56,23 @@ export const McpSettingsPage: Component = () => {
 
           <div>
             <h3 class="text-sm font-medium">{t('mcp-settings.instructions.title')}</h3>
+
+            <h4 class="mt-3 text-sm font-medium">{t('mcp-settings.instructions.oauth.title')}</h4>
+            <ol class="mt-2 list-decimal pl-5 text-sm text-muted-foreground flex flex-col gap-1">
+              <li>{t('mcp-settings.instructions.oauth.step-add-url')}</li>
+              <li>{t('mcp-settings.instructions.oauth.step-approve')}</li>
+            </ol>
+
+            <h4 class="mt-4 text-sm font-medium">{t('mcp-settings.instructions.api-key.title')}</h4>
             <ol class="mt-2 list-decimal pl-5 text-sm text-muted-foreground flex flex-col gap-1">
               <li>
-                {t('mcp-settings.instructions.step-create-key')}{' '}
+                {t('mcp-settings.instructions.api-key.step-create-key')}{' '}
                 <A href="/api-keys" class="text-primary hover:underline">
-                  {t('mcp-settings.instructions.api-keys-link')}
+                  {t('mcp-settings.instructions.api-key.api-keys-link')}
                 </A>
               </li>
-              <li>{t('mcp-settings.instructions.step-add-url')}</li>
-              <li>{t('mcp-settings.instructions.step-send-key')}</li>
+              <li>{t('mcp-settings.instructions.api-key.step-add-url')}</li>
+              <li>{t('mcp-settings.instructions.api-key.step-send-key')}</li>
             </ol>
           </div>
         </Show>

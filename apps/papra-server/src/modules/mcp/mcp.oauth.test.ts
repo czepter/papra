@@ -99,7 +99,10 @@ describe('mcp oauth access token verification', () => {
   test.each([
     ['a token for another audience', { payload: { aud: 'http://localhost:1221/other' } }],
     ['a token for the issuer itself as audience', { payload: { aud: issuer } }],
-    ['a token with several audiences', { payload: { aud: [resource, 'http://localhost:1221/other'] } }],
+    [
+      'a token with several audiences',
+      { payload: { aud: [resource, 'http://localhost:1221/other'] } },
+    ],
     ['a token without audience', { omit: ['aud'] }],
     ['a token from another issuer', { payload: { iss: 'https://evil.example/api/auth' } }],
     ['a token without issuer', { omit: ['iss'] }],

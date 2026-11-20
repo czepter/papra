@@ -15,9 +15,7 @@ async function setupWithUserAndOrganization(options: Parameters<typeof setupOaut
   const { userId } = await t.signUp();
   await t.seedDatabase({
     organizations: [{ id: 'org_alice', name: 'Alice org' }],
-    organizationMembers: [
-      { id: 'om_alice', organizationId: 'org_alice', userId, role: 'owner' },
-    ],
+    organizationMembers: [{ id: 'om_alice', organizationId: 'org_alice', userId, role: 'owner' }],
   });
   const { cookie } = await t.signIn();
 
@@ -55,6 +53,13 @@ async function readRpcResult(response: Response) {
     result?: any;
     error?: { code: number; message: string };
   };
+}
+
+async function readOrganizations(response: Response) {
+  const { result } = await readRpcResult(response);
+
+  return (JSON.parse(result.content[0].text) as { organizations: { id: string; name: string }[] })
+    .organizations;
 }
 
 const toolsList = { jsonrpc: '2.0', id: 1, method: 'tools/list' };
@@ -138,9 +143,8 @@ describe('mcp oauth e2e', () => {
         token: tokens.access_token,
         body: callTool('list_organizations'),
       });
-      const organizations = await readRpcResult(organizationsResponse);
-      expect(organizations.result.isError).toBeUndefined();
-      const [organization, ...others] = JSON.parse(organizations.result.content[0].text).organizations;
+      expect(organizationsResponse.status).to.eql(200);
+      const [organization, ...others] = await readOrganizations(organizationsResponse);
       expect(others).to.eql([]);
       expect(organization).toMatchObject({ id: 'org_alice', name: 'Alice org' });
     });
@@ -466,8 +470,7 @@ describe('mcp oauth e2e', () => {
         token: tokens.access_token,
         body: callTool('list_organizations'),
       });
-      const result = await readRpcResult(response);
-      expect(JSON.parse(result.result.content[0].text).organizations).to.eql([]);
+      expect(await readOrganizations(response)).to.eql([]);
     });
 
     test('an oauth access token is not accepted on the REST api', async () => {
@@ -501,8 +504,7 @@ describe('mcp oauth e2e', () => {
       const response = await callMcp({ t, token, body: callTool('list_organizations') });
 
       expect(response.status).to.eql(200);
-      const result = await readRpcResult(response);
-      expect(JSON.parse(result.result.content[0].text).organizations).toHaveLength(1);
+      expect(await readOrganizations(response)).toHaveLength(1);
     });
   });
 
@@ -599,7 +601,9 @@ describe('mcp oauth e2e', () => {
       const credentials = await t.registerClient({ grant_types: ['client_credentials'] });
       expect(credentials.response.status).to.eql(400);
 
-      const confidential = await t.registerClient({ token_endpoint_auth_method: 'client_secret_basic' });
+      const confidential = await t.registerClient({
+        token_endpoint_auth_method: 'client_secret_basic',
+      });
       expect(confidential.response.status).to.eql(400);
 
       const skipConsent = await t.registerClient({ skip_consent: true });

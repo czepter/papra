@@ -44,8 +44,8 @@ export async function setupOauthTest({
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password: OAUTH_TEST_PASSWORD }),
     });
-    const cookie = response
-      .headers.getSetCookie()
+    const cookie = response.headers
+      .getSetCookie()
       .map((value) => value.split(';')[0])
       .join('; ');
 
@@ -104,7 +104,10 @@ export async function setupOauthTest({
     return `/api/auth/oauth2/authorize?${params.toString()}`;
   }
 
-  async function authorize({ cookie, ...args }: Parameters<typeof authorizeUrl>[0] & { cookie?: string }) {
+  async function authorize({
+    cookie,
+    ...args
+  }: Parameters<typeof authorizeUrl>[0] & { cookie?: string }) {
     const response = await app.request(authorizeUrl(args), {
       headers: cookie === undefined ? {} : { cookie },
     });
@@ -173,7 +176,7 @@ export async function setupOauthTest({
     });
   }
 
-  function refresh({
+  async function refresh({
     clientId,
     refreshToken,
     scope,
@@ -194,7 +197,7 @@ export async function setupOauthTest({
       body.set('scope', scope);
     }
 
-    return app.request('/api/auth/oauth2/token', {
+    return await app.request('/api/auth/oauth2/token', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -216,7 +219,13 @@ export async function setupOauthTest({
     const { response: registerResponse } = await registerClient(clientOverrides);
     const { client_id: clientId } = (await registerResponse.json()) as { client_id: string };
     const { verifier, challenge } = createPkcePair();
-    const { location: consentLocation } = await authorize({ cookie, clientId, challenge, scope, resource });
+    const { location: consentLocation } = await authorize({
+      cookie,
+      clientId,
+      challenge,
+      scope,
+      resource,
+    });
     const { response: decision } = await decide({
       cookie,
       consentLocation: consentLocation as string,
@@ -241,7 +250,8 @@ export async function setupOauthTest({
     config: fullConfig,
     urls,
     clientOrigin,
-    seedDatabase: (args: Omit<Parameters<typeof seedDatabase>[0], 'db'>) => seedDatabase({ db, ...args }),
+    seedDatabase: async (args: Omit<Parameters<typeof seedDatabase>[0], 'db'>) =>
+      seedDatabase({ db, ...args }),
     signUp,
     signIn,
     registerClient,

@@ -116,7 +116,9 @@ describe('mcp oauth models', () => {
 
     test('the client name is limited to 100 characters after trimming', () => {
       expect(
-        validateClientRegistrationBody({ body: { ...valid, client_name: `  ${'a'.repeat(100)}  ` } }),
+        validateClientRegistrationBody({
+          body: { ...valid, client_name: `  ${'a'.repeat(100)}  ` },
+        }),
       ).to.eql(undefined);
       expect(
         validateClientRegistrationBody({ body: { ...valid, client_name: 'a'.repeat(101) } }),
@@ -125,7 +127,10 @@ describe('mcp oauth models', () => {
 
     test.each([
       ['no redirect uri', { redirect_uris: [] }],
-      ['too many redirect uris', { redirect_uris: Array.from({ length: 11 }, (_, i) => `https://c.example/${i}`) }],
+      [
+        'too many redirect uris',
+        { redirect_uris: Array.from({ length: 11 }, (_, i) => `https://c.example/${i}`) },
+      ],
       ['a bad redirect uri', { redirect_uris: ['http://evil.example/cb'] }],
       ['the client credentials grant', { grant_types: ['client_credentials'] }],
       ['a confidential client', { token_endpoint_auth_method: 'client_secret_basic' }],

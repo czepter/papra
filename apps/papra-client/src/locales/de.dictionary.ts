@@ -988,13 +988,56 @@ export const translations: Partial<TranslationsDictionary> = {
   'mcp-settings.url.copy': 'Kopieren',
   'mcp-settings.url.copied': 'Kopiert!',
   'mcp-settings.instructions.title': 'So verbinden Sie sich',
-  'mcp-settings.instructions.step-create-key':
+  'mcp-settings.instructions.oauth.title': 'Mit Ihrem Papra-Konto (empfohlen)',
+  'mcp-settings.instructions.oauth.step-add-url':
+    'Tragen Sie die obige Server-URL in Ihrem MCP-Client ein. Die meisten Clients benötigen sonst nichts.',
+  'mcp-settings.instructions.oauth.step-approve':
+    'Papra fordert Sie anschließend auf, sich anzumelden und den vom Client angeforderten Zugriff zu bestätigen.',
+  'mcp-settings.instructions.api-key.title': 'Mit einem API-Schlüssel',
+  'mcp-settings.instructions.api-key.step-create-key':
     'Erstellen Sie einen API-Schlüssel mit der Berechtigung organizations:read.',
-  'mcp-settings.instructions.api-keys-link': 'Zu den API-Schlüsseln',
-  'mcp-settings.instructions.step-add-url':
+  'mcp-settings.instructions.api-key.api-keys-link': 'Zu den API-Schlüsseln',
+  'mcp-settings.instructions.api-key.step-add-url':
     'Tragen Sie die obige Server-URL in Ihrem MCP-Client ein.',
-  'mcp-settings.instructions.step-send-key':
+  'mcp-settings.instructions.api-key.step-send-key':
     'Konfigurieren Sie den Client so, dass er den Schlüssel als Header "Authorization: Bearer <Schlüssel>" sendet.',
+  'oauth-consent.title': 'Zugriff auf Ihr Papra-Konto erlauben?',
+  'oauth-consent.description': 'möchte sich über MCP mit Ihrem Papra-Konto verbinden.',
+  'oauth-consent.unknown-application': 'Unbekannte Anwendung',
+  'oauth-consent.redirect-host': 'Leitet Sie zurück zu',
+  'oauth-consent.account': 'Angemeldet als',
+  'oauth-consent.scopes.title': 'Die Anwendung darf',
+  'oauth-consent.groups.connection': 'Verbindung',
+  'oauth-consent.scopes.offline_access': 'Verbunden bleiben, ohne erneut nachzufragen',
+  'oauth-consent.revoke-hint':
+    'Bestätigen Sie nur Anwendungen, denen Sie vertrauen. Die Anwendung kann nur das tun, was Sie hier erlauben, und nur in Organisationen, denen Sie angehören.',
+  'oauth-consent.allow': 'Erlauben',
+  'oauth-consent.deny': 'Ablehnen',
+  'oauth-consent.error.submit':
+    'Ihre Entscheidung konnte nicht gesendet werden. Bitte versuchen Sie es erneut.',
+  'oauth-consent.invalid.title': 'Diese Anfrage ist ungültig',
+  'oauth-consent.invalid.description':
+    'Die Autorisierungsanfrage ist unvollständig, abgelaufen oder wurde verändert. Starten Sie die Verbindung erneut in Ihrer Anwendung.',
+  'oauth-consent.unavailable.title': 'MCP ist nicht verfügbar',
+  'oauth-consent.unavailable.description':
+    'Der MCP-Server ist auf dieser Instanz ausgeschaltet, daher können sich Anwendungen nicht verbinden.',
+  'oauth-consent.back-to-papra': 'Zurück zu Papra',
+  'oauth-consent.scopes.organizations:create': 'Organisationen erstellen',
+  'oauth-consent.scopes.organizations:read': 'Ihre Organisationen einsehen',
+  'oauth-consent.scopes.organizations:update': 'Organisationseinstellungen ändern',
+  'oauth-consent.scopes.organizations:delete': 'Organisationen löschen',
+  'oauth-consent.scopes.documents:create': 'Dokumente hochladen',
+  'oauth-consent.scopes.documents:read': 'Ihre Dokumente einschließlich ihres Inhalts lesen',
+  'oauth-consent.scopes.documents:update': 'Dokumente bearbeiten',
+  'oauth-consent.scopes.documents:delete': 'Dokumente löschen',
+  'oauth-consent.scopes.tags:create': 'Tags erstellen',
+  'oauth-consent.scopes.tags:read': 'Ihre Tags einsehen',
+  'oauth-consent.scopes.tags:update': 'Tags bearbeiten',
+  'oauth-consent.scopes.tags:delete': 'Tags löschen',
+  'oauth-consent.scopes.custom-properties:create': 'Benutzerdefinierte Eigenschaften erstellen',
+  'oauth-consent.scopes.custom-properties:read': 'Ihre benutzerdefinierten Eigenschaften einsehen',
+  'oauth-consent.scopes.custom-properties:update': 'Benutzerdefinierte Eigenschaften bearbeiten',
+  'oauth-consent.scopes.custom-properties:delete': 'Benutzerdefinierte Eigenschaften löschen',
   'api-keys.list.title': 'API-Schlüssel',
   'api-keys.list.description': 'Verwalten Sie hier Ihre API-Schlüssel.',
   'api-keys.list.create': 'API-Schlüssel erstellen',

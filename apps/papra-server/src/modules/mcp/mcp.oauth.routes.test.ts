@@ -7,13 +7,15 @@ import { API_KEY_PERMISSIONS_VALUES } from '../api-keys/api-keys.constants';
 
 async function setup({ config = {} }: { config?: Parameters<typeof overrideConfig>[0] } = {}) {
   const { db } = await createInMemoryDatabase();
-  const { app } = createServer(createTestServerDependencies({ db, config: overrideConfig(config) }));
+  const { app } = createServer(
+    createTestServerDependencies({ db, config: overrideConfig(config) }),
+  );
 
   return { app };
 }
 
 const BASE = 'http://localhost:1221';
-const spoofedHeaders = { host: 'evil.example', 'x-forwarded-host': 'evil.example' };
+const spoofedHeaders = { 'host': 'evil.example', 'x-forwarded-host': 'evil.example' };
 
 describe('mcp oauth metadata routes', () => {
   test('the protected resource metadata is served at the bare and the resource specific path, built from the configuration', async () => {
@@ -117,7 +119,7 @@ describe('mcp oauth metadata routes', () => {
       const response = await app.request(path, {
         method: 'OPTIONS',
         headers: {
-          origin: 'https://claude.example',
+          'origin': 'https://claude.example',
           'access-control-request-method': 'POST',
           'access-control-request-headers': 'content-type',
         },
@@ -134,7 +136,7 @@ describe('mcp oauth metadata routes', () => {
     for (const path of ['/api/auth/oauth2/consent', '/api/organizations', '/mcp']) {
       const response = await app.request(path, {
         method: 'OPTIONS',
-        headers: { origin: 'https://claude.example', 'access-control-request-method': 'POST' },
+        headers: { 'origin': 'https://claude.example', 'access-control-request-method': 'POST' },
       });
 
       expect(response.headers.get('access-control-allow-origin'), path).to.eql(null);

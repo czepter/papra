@@ -29,5 +29,4 @@ export const MCP_OAUTH_REGISTRATION_RATE_LIMIT_PER_IP = { maxHits: 10, window: {
 export const MCP_OAUTH_REGISTRATION_RATE_LIMIT_GLOBAL = { maxHits: 100, window: { hours: 1 } };
 
 export const OAUTH_PROTECTED_RESOURCE_WELL_KNOWN_PATH = '/.well-known/oauth-protected-resource';
-export const OAUTH_AUTHORIZATION_SERVER_WELL_KNOWN_PATH =
-  '/.well-known/oauth-authorization-server';
+export const OAUTH_AUTHORIZATION_SERVER_WELL_KNOWN_PATH = '/.well-known/oauth-authorization-server';

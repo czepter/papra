@@ -1,6 +1,7 @@
 import type { Config } from '../config/config';
 
 import type { SsoProviderConfig } from './auth.types';
+import { oauthProviderClient } from '@better-auth/oauth-provider/client';
 import { genericOAuthClient, twoFactorClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/solid';
 import { buildTimeConfig, isDemoMode } from '../config/config';
@@ -12,7 +13,7 @@ import { buildUrl } from '@corentinth/chisels';
 export function createAuthClient() {
   const client = createBetterAuthClient({
     baseURL: buildTimeConfig.baseApiUrl,
-    plugins: [genericOAuthClient(), twoFactorClient()],
+    plugins: [genericOAuthClient(), twoFactorClient(), oauthProviderClient()],
   });
 
   return {
@@ -24,6 +25,8 @@ export function createAuthClient() {
     sendVerificationEmail: client.sendVerificationEmail,
     twoFactor: client.twoFactor,
     getSession: client.getSession,
+    // Low level fetch of the auth client, with its plugin hooks: used by the OAuth consent page
+    $fetch: client.$fetch,
     signOut: async () => {
       trackingServices.capture({ event: 'User logged out' });
       const result = await client.signOut();
@@ -45,6 +48,7 @@ export const {
   resetPassword,
   sendVerificationEmail,
   twoFactor,
+  $fetch: authFetch,
 } = isDemoMode ? createDemoAuthClient() : createAuthClient();
 
 export async function authWithProvider({
