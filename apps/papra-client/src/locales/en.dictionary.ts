@@ -262,6 +262,17 @@ export const translations = {
   'organization.settings.delete.has-active-subscription':
     'Cannot delete organization with an active subscription, please cancel your subscription above first.',
 
+  'organization.settings.inbox.title': 'Inbox',
+  'organization.settings.inbox.description':
+    'Choose how new documents are tracked until someone has reviewed them.',
+  'organization.settings.inbox.mode.shared.label': 'Shared inbox',
+  'organization.settings.inbox.mode.shared.description':
+    'One inbox for the whole organization. When any member reviews a document, it leaves the inbox for everyone.',
+  'organization.settings.inbox.mode.per-user.label': 'One inbox per member',
+  'organization.settings.inbox.mode.per-user.description':
+    'Every member has their own inbox. Reviewing a document only removes it from your own inbox. New members only see documents added after they joined.',
+  'organization.settings.inbox.only-owner': 'Only the organization owner can change this setting.',
+
   'organization.settings.auto-tagging.page.title': 'Auto Tagging Settings',
   'organization.settings.auto-tagging.page.description':
     'Auto tagging settings for your organization. This feature allows you to automatically tag content based on AI predictions.',
@@ -361,6 +372,22 @@ export const translations = {
   'invitations.list.actions.accept.success.description': 'The invitation has been accepted.',
   'invitations.list.actions.reject.success.message': 'Invitation rejected',
   'invitations.list.actions.reject.success.description': 'The invitation has been rejected.',
+
+  // Inbox
+
+  'inbox.page.title': 'Inbox',
+  'inbox.page.description':
+    'New documents wait here until you have looked at them. Opening a document, tagging it or marking it as done takes it out of the inbox.',
+  'inbox.page.count': '{{ count }} {{ count, =1:document, documents }} to review',
+  'inbox.empty.title': 'Your inbox is empty',
+  'inbox.empty.description':
+    'You are all caught up. New documents will show up here until they are reviewed.',
+  'inbox.actions.done': 'Done',
+  'inbox.actions.done.error': 'Failed to mark the documents as done',
+  'inbox.actions.mark-as-done': 'Mark as done',
+  'inbox.actions.move-to-inbox': 'Move to inbox',
+  'inbox.actions.move-to-inbox.success': 'The document is back in the inbox',
+  'inbox.quick-look.hints.done': 'done',
 
   // Documents
 
@@ -1097,6 +1124,7 @@ export const translations = {
   // Navigation
 
   'layout.menu.home': 'Home',
+  'layout.menu.inbox': 'Inbox',
   'layout.menu.documents': 'Documents',
   'layout.menu.tags': 'Tags',
   'layout.menu.custom-properties': 'Custom Properties',

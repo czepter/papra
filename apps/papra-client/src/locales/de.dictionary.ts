@@ -275,6 +275,18 @@ export const translations: Partial<TranslationsDictionary> = {
   'organization.settings.delete.has-active-subscription':
     'Organisation mit aktivem Abonnement kann nicht gelöscht werden, bitte kündigen Sie zuerst Ihr Abonnement oben.',
 
+  'organization.settings.inbox.title': 'Eingang',
+  'organization.settings.inbox.description':
+    'Lege fest, wie neue Dokumente nachverfolgt werden, bis sie jemand geprüft hat.',
+  'organization.settings.inbox.mode.shared.label': 'Gemeinsamer Eingang',
+  'organization.settings.inbox.mode.shared.description':
+    'Ein Eingang für die gesamte Organisation. Sobald ein Mitglied ein Dokument geprüft hat, verschwindet es für alle aus dem Eingang.',
+  'organization.settings.inbox.mode.per-user.label': 'Ein Eingang pro Mitglied',
+  'organization.settings.inbox.mode.per-user.description':
+    'Jedes Mitglied hat seinen eigenen Eingang. Ein geprüftes Dokument verschwindet nur aus deinem eigenen Eingang. Neue Mitglieder sehen nur Dokumente, die nach ihrem Beitritt hinzugefügt wurden.',
+  'organization.settings.inbox.only-owner':
+    'Nur der Besitzer der Organisation kann diese Einstellung ändern.',
+
   'organization.usage.page.title': 'Nutzung',
   'organization.usage.page.description':
     'Sehen Sie die aktuelle Nutzung und Limits Ihrer Organisation.',
@@ -360,6 +372,22 @@ export const translations: Partial<TranslationsDictionary> = {
   'invitations.list.actions.accept.success.description': 'Die Einladung wurde angenommen.',
   'invitations.list.actions.reject.success.message': 'Einladung abgelehnt',
   'invitations.list.actions.reject.success.description': 'Die Einladung wurde abgelehnt.',
+
+  // Eingang
+
+  'inbox.page.title': 'Eingang',
+  'inbox.page.description':
+    'Neue Dokumente warten hier, bis du sie angesehen hast. Ein Dokument zu öffnen, zu taggen oder als erledigt zu markieren nimmt es aus dem Eingang.',
+  'inbox.page.count': '{{ count }} {{ count, =1:Dokument, Dokumente }} zu prüfen',
+  'inbox.empty.title': 'Dein Eingang ist leer',
+  'inbox.empty.description':
+    'Alles erledigt. Neue Dokumente erscheinen hier, bis sie geprüft wurden.',
+  'inbox.actions.done': 'Erledigt',
+  'inbox.actions.done.error': 'Die Dokumente konnten nicht als erledigt markiert werden',
+  'inbox.actions.mark-as-done': 'Als erledigt markieren',
+  'inbox.actions.move-to-inbox': 'In den Eingang verschieben',
+  'inbox.actions.move-to-inbox.success': 'Das Dokument liegt wieder im Eingang',
+  'inbox.quick-look.hints.done': 'erledigt',
 
   // Documents
 
@@ -1088,6 +1116,7 @@ export const translations: Partial<TranslationsDictionary> = {
   // Navigation
 
   'layout.menu.home': 'Startseite',
+  'layout.menu.inbox': 'Eingang',
   'layout.menu.documents': 'Dokumente',
   'layout.menu.tags': 'Tags',
   'layout.menu.custom-properties': 'Benutzerdefinierte Eigenschaften',

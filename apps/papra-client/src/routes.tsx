@@ -23,6 +23,7 @@ import { DeletedDocumentsPage } from './modules/documents/pages/deleted-document
 import { DocumentPdfViewerPage } from './modules/documents/pages/document-pdf-viewer.page';
 import { DocumentPage } from './modules/documents/pages/document.page';
 import { DocumentsPage } from './modules/documents/pages/documents.page';
+import { InboxPage } from './modules/document-inbox/pages/inbox.page';
 import { IntakeEmailsPage } from './modules/intake-emails/pages/intake-emails.page';
 import { InvitationsPage } from './modules/invitations/pages/invitations.page';
 import { useLastOrganization } from './modules/organizations/composables/use-last-organization';
@@ -133,6 +134,10 @@ export const routes: RouteDefinition[] = [
                   {
                     path: '/',
                     component: OrganizationPage,
+                  },
+                  {
+                    path: '/inbox',
+                    component: InboxPage,
                   },
                   {
                     path: '/documents',
