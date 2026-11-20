@@ -229,7 +229,7 @@ describe('mcp routes', () => {
   });
 
   describe('tools', () => {
-    test('tools/list returns exactly ping and list_organizations, read-only and described', async () => {
+    test('tools/list returns described tools with an object input schema and annotations', async () => {
       const { app } = await setup();
 
       const response = await callMcp({
@@ -238,16 +238,22 @@ describe('mcp routes', () => {
         body: { jsonrpc: '2.0', id: 3, method: 'tools/list', params: {} },
       });
       const { result } = await readRpcResult(response);
+      const names = result.tools.map(({ name }: { name: string }) => name);
 
-      expect(result.tools.map(({ name }: { name: string }) => name).sort()).to.eql([
-        'list_organizations',
-        'ping',
-      ]);
+      // The full catalogue is pinned in mcp.tools.test.ts
+      expect(names).to.include.members(['ping', 'list_organizations']);
 
       for (const tool of result.tools) {
         expect(tool.description).to.be.a('string').and.not.to.eql('');
+        expect(tool.inputSchema.type).to.eql('object');
+        expect(tool.annotations).to.be.an('object');
+      }
+
+      for (const name of ['ping', 'list_organizations']) {
+        const tool = result.tools.find((candidate: { name: string }) => candidate.name === name);
+
         expect(tool.annotations.readOnlyHint).to.eql(true);
-        // No tool takes arguments, in particular no user id
+        // These two take no arguments, in particular no user id
         expect(tool.inputSchema.properties ?? {}).to.eql({});
       }
     });

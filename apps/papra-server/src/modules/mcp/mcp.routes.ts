@@ -1,9 +1,12 @@
 import type { Context } from 'hono';
 import type { RouteDefinitionContext } from '../app/server.types';
 import { bearerAuth, StreamableHTTPTransport } from '@hono/mcp';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { bodyLimit } from 'hono/body-limit';
 import { formatPublicErrorPayload } from '../shared/errors/errors';
 import { buildVerifyApiKeyToken } from './mcp.authentication';
+import { MCP_REQUEST_BODY_MAX_SIZE } from './mcp.constants';
+import { createMcpRequestBodyTooLargeError } from './mcp.errors';
 import { registerMcpTools } from './mcp.tools';
 
 export const MCP_ROUTE_PATH = '/mcp';
@@ -17,7 +20,8 @@ const unauthorizedPayload = formatPublicErrorPayload({
   code: 'auth.unauthorized',
 });
 
-export function registerMcpRoutes({ app, db, config }: RouteDefinitionContext) {
+export function registerMcpRoutes({ app, ...deps }: RouteDefinitionContext) {
+  const { db, config } = deps;
   const verifyApiKeyToken = buildVerifyApiKeyToken({ db });
 
   app.all(
@@ -47,6 +51,12 @@ export function registerMcpRoutes({ app, db, config }: RouteDefinitionContext) {
         return true;
       },
     }),
+    // After the authentication, so an unauthenticated caller cannot make the server read a large body
+    bodyLimit({
+      maxSize: MCP_REQUEST_BODY_MAX_SIZE,
+      onError: (context) =>
+        context.json(formatPublicErrorPayload(createMcpRequestBodyTooLargeError()), 413),
+    }),
     async (context) => {
       // Stateless mode: there is no server-initiated stream nor session to close
       if (context.req.method !== 'POST') {
@@ -63,8 +73,8 @@ export function registerMcpRoutes({ app, db, config }: RouteDefinitionContext) {
 
       // A server and transport pair per request: the transport remembers the request being handled,
       // so sharing one between concurrent callers could mix up their auth info.
-      const server = new McpServer({ name: 'papra', version: config.version });
-      registerMcpTools({ server, db });
+      const server = new Server({ name: 'papra', version: config.version }, { capabilities: {} });
+      registerMcpTools({ server, deps });
 
       // No sessionIdGenerator: the transport is stateless
       const transport = new StreamableHTTPTransport();
