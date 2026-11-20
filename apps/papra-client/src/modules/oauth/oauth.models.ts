@@ -64,3 +64,8 @@ export function getClientDisplayName({ name }: { name: string | undefined | null
 
   return trimmed === undefined || trimmed === '' ? undefined : trimmed;
 }
+
+// Scopes that let the client remove data, marked on the consent page and in the connected apps list
+export function isDestructiveScope({ scope }: { scope: string }) {
+  return scope.endsWith(':delete');
+}

@@ -1012,6 +1012,28 @@ export const translations = {
   'mcp-settings.instructions.api-key.step-add-url': 'Add the server URL above to your MCP client.',
   'mcp-settings.instructions.api-key.step-send-key':
     'Configure the client to send the key as an "Authorization: Bearer <key>" header.',
+  'mcp-settings.connected-apps.title': 'Connected apps',
+  'mcp-settings.connected-apps.description':
+    'Apps you approved to access your Papra account through MCP. Revoke an app to cut its access off.',
+  'mcp-settings.connected-apps.empty.title': 'No connected apps',
+  'mcp-settings.connected-apps.empty.description':
+    'Apps show up here after you approve their access from an MCP client.',
+  'mcp-settings.connected-apps.error': 'The connected apps could not be loaded.',
+  'mcp-settings.connected-apps.retry': 'Retry',
+  'mcp-settings.connected-apps.unnamed': 'Unnamed app',
+  'mcp-settings.connected-apps.authorized': 'Authorized on {{ date }}',
+  'mcp-settings.connected-apps.last-active': 'Last active {{ date }}',
+  'mcp-settings.connected-apps.permissions.show-all': 'Show all {{ count }} permissions',
+  'mcp-settings.connected-apps.permissions.show-less': 'Show fewer permissions',
+  'mcp-settings.connected-apps.revoke.button': 'Revoke',
+  'mcp-settings.connected-apps.revoke.label': 'Revoke access for {{ name }}',
+  'mcp-settings.connected-apps.revoke.confirm.title': 'Revoke access for {{ name }}?',
+  'mcp-settings.connected-apps.revoke.confirm.message':
+    '{{ name }} loses access to your Papra account immediately. To connect again, the app must be approved anew.',
+  'mcp-settings.connected-apps.revoke.confirm.confirm-button': 'Revoke access',
+  'mcp-settings.connected-apps.revoke.confirm.cancel-button': 'Cancel',
+  'mcp-settings.connected-apps.revoke.success': 'Access revoked',
+  'mcp-settings.connected-apps.revoke.error': 'The access could not be revoked. Please try again.',
   'oauth-consent.title': 'Allow access to your Papra account?',
   'oauth-consent.description': 'wants to connect to your Papra account through MCP.',
   'oauth-consent.unknown-application': 'Unknown application',
@@ -1022,6 +1044,9 @@ export const translations = {
   'oauth-consent.scopes.offline_access': 'Stay connected without asking you again',
   'oauth-consent.revoke-hint':
     'Only approve applications you trust. The application can only do what you allow here, and only in organizations you belong to.',
+  'oauth-consent.revoke-later': 'You can revoke access later:',
+  'oauth-consent.revoke-later-link': 'MCP settings',
+  'oauth-consent.scopes.destructive-cue': 'Deletes data',
   'oauth-consent.allow': 'Allow',
   'oauth-consent.deny': 'Deny',
   'oauth-consent.error.submit': 'Your decision could not be sent. Please try again.',

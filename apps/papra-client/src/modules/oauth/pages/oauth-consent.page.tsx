@@ -1,6 +1,6 @@
 import type { Component } from 'solid-js';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
-import { Navigate, useLocation, useSearchParams } from '@solidjs/router';
+import { A, Navigate, useLocation, useSearchParams } from '@solidjs/router';
 import { useMutation, useQuery } from '@tanstack/solid-query';
 import { createSignal, For, Match, Show, Switch } from 'solid-js';
 import { useSession } from '@/modules/auth/composables/use-session.composable';
@@ -18,6 +18,7 @@ import {
   getScopeGroups,
   isSafeRedirectUrl,
 } from '../oauth.models';
+import { ScopeIcon, ScopeLabel } from '../components/scope-label';
 import { fetchOauthPublicClient, submitOauthConsent } from '../oauth.services';
 
 const ConsentCard: Component<{
@@ -170,13 +171,9 @@ export const OauthConsentPage: Component = () => {
                     <ul class="mt-1 flex flex-col gap-1 text-sm">
                       <For each={group.scopes}>
                         {(item) => (
-                          <li class="flex gap-2 items-start">
-                            <div class="i-tabler-check size-4 text-primary mt-0.5 shrink-0" />
-                            <span class="break-words min-w-0">
-                              {item.isKnown
-                                ? t(`oauth-consent.scopes.${item.scope}` as TranslationKeys)
-                                : item.scope}
-                            </span>
+                          <li class="flex flex-wrap gap-x-2 gap-y-0.5 items-start">
+                            <ScopeIcon scope={item.scope} />
+                            <ScopeLabel scope={item.scope} isKnown={item.isKnown} />
                           </li>
                         )}
                       </For>
@@ -187,16 +184,21 @@ export const OauthConsentPage: Component = () => {
             </div>
 
             <p class="text-xs text-muted-foreground mt-3">{t('oauth-consent.revoke-hint')}</p>
-
-            <div class="mt-4 flex flex-col-reverse sm:flex-row gap-2">
-              <Button
-                variant="secondary"
-                class="sm:flex-1"
-                disabled={getIsBusy()}
-                onClick={() => decisionMutation.mutate({ accept: false })}
+            {/* A fixed internal path in a new tab: the pending decision stays on screen and nothing of the request leaks */}
+            <p class="text-xs text-muted-foreground mt-1">
+              {t('oauth-consent.revoke-later')}{' '}
+              <A
+                href="/mcp-settings"
+                target="_blank"
+                rel="noopener"
+                class="text-primary hover:underline"
               >
-                {t('oauth-consent.deny')}
-              </Button>
+                {t('oauth-consent.revoke-later-link')}
+              </A>
+            </p>
+
+            {/* DOM order is the visual order at every width: Allow first, stacked on mobile, side by side from sm */}
+            <div class="mt-4 flex flex-col sm:flex-row gap-2">
               <Button
                 class="sm:flex-1"
                 disabled={getIsBusy()}
@@ -204,6 +206,14 @@ export const OauthConsentPage: Component = () => {
                 onClick={() => decisionMutation.mutate({ accept: true })}
               >
                 {t('oauth-consent.allow')}
+              </Button>
+              <Button
+                variant="secondary"
+                class="sm:flex-1"
+                disabled={getIsBusy()}
+                onClick={() => decisionMutation.mutate({ accept: false })}
+              >
+                {t('oauth-consent.deny')}
               </Button>
             </div>
           </ConsentCard>

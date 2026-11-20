@@ -6,6 +6,7 @@ import {
   getClientDisplayName,
   getRedirectHost,
   getScopeGroups,
+  isDestructiveScope,
   isSafeRedirectUrl,
 } from './oauth.models';
 
@@ -33,6 +34,26 @@ describe('oauth models', () => {
 
       for (const text of consentTexts) {
         expect(text).not.toMatch(/\b(du|dein|deine|deinen|deiner|dir|dich)\b/i);
+      }
+    });
+  });
+
+  describe('connected apps and consent copy', () => {
+    test('every new key exists in en and de with the same placeholders', () => {
+      const keys = Object.keys(en).filter(
+        (key) =>
+          key.startsWith('mcp-settings.connected-apps.') ||
+          ['oauth-consent.revoke-later', 'oauth-consent.revoke-later-link', 'oauth-consent.scopes.destructive-cue'].includes(key),
+      );
+      const placeholders = (text: string) => [...text.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(([, name]) => name).sort();
+
+      expect(keys.length).toBeGreaterThan(15);
+      for (const key of keys) {
+        const enText = en[key as keyof typeof en] as string;
+        const deText = de[key as keyof typeof de] as string | undefined;
+
+        expect(deText, `de ${key}`).toEqual(expect.any(String));
+        expect(placeholders(deText as string), key).to.eql(placeholders(enText));
       }
     });
   });
@@ -120,6 +141,24 @@ describe('oauth models', () => {
 
     test('markup is kept as literal text, never interpreted', () => {
       expect(getClientDisplayName({ name: '<b>x</b>' })).to.eql('<b>x</b>');
+    });
+  });
+
+  describe('isDestructiveScope', () => {
+    test('every delete permission is destructive, nothing else is', () => {
+      for (const permission of API_KEY_PERMISSIONS_VALUES) {
+        expect(isDestructiveScope({ scope: permission }), permission).toEqual(
+          permission.endsWith(':delete'),
+        );
+      }
+      expect(API_KEY_PERMISSIONS_VALUES.filter((scope) => isDestructiveScope({ scope }))).toHaveLength(4);
+    });
+
+    test('offline access, unknown scopes and look-alikes are not destructive', () => {
+      expect(isDestructiveScope({ scope: 'offline_access' })).toEqual(false);
+      expect(isDestructiveScope({ scope: 'documents:deleted' })).toEqual(false);
+      expect(isDestructiveScope({ scope: 'delete' })).toEqual(false);
+      expect(isDestructiveScope({ scope: '' })).toEqual(false);
     });
   });
 });

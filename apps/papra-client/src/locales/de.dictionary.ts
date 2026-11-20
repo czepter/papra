@@ -1001,6 +1001,29 @@ export const translations: Partial<TranslationsDictionary> = {
     'Tragen Sie die obige Server-URL in Ihrem MCP-Client ein.',
   'mcp-settings.instructions.api-key.step-send-key':
     'Konfigurieren Sie den Client so, dass er den Schlüssel als Header "Authorization: Bearer <Schlüssel>" sendet.',
+  'mcp-settings.connected-apps.title': 'Verbundene Apps',
+  'mcp-settings.connected-apps.description':
+    'Apps, die Sie für den Zugriff auf Ihr Papra-Konto über MCP freigegeben haben. Widerrufen Sie eine App, um ihren Zugriff zu beenden.',
+  'mcp-settings.connected-apps.empty.title': 'Keine verbundenen Apps',
+  'mcp-settings.connected-apps.empty.description':
+    'Apps erscheinen hier, sobald Sie ihren Zugriff über einen MCP-Client freigeben.',
+  'mcp-settings.connected-apps.error': 'Die verbundenen Apps konnten nicht geladen werden.',
+  'mcp-settings.connected-apps.retry': 'Erneut versuchen',
+  'mcp-settings.connected-apps.unnamed': 'App ohne Namen',
+  'mcp-settings.connected-apps.authorized': 'Freigegeben am {{ date }}',
+  'mcp-settings.connected-apps.last-active': 'Zuletzt aktiv {{ date }}',
+  'mcp-settings.connected-apps.permissions.show-all': 'Alle {{ count }} Berechtigungen anzeigen',
+  'mcp-settings.connected-apps.permissions.show-less': 'Weniger Berechtigungen anzeigen',
+  'mcp-settings.connected-apps.revoke.button': 'Widerrufen',
+  'mcp-settings.connected-apps.revoke.label': 'Zugriff für {{ name }} widerrufen',
+  'mcp-settings.connected-apps.revoke.confirm.title': 'Zugriff für {{ name }} widerrufen?',
+  'mcp-settings.connected-apps.revoke.confirm.message':
+    '{{ name }} verliert sofort den Zugriff auf Ihr Papra-Konto. Um sich erneut zu verbinden, muss die App neu freigegeben werden.',
+  'mcp-settings.connected-apps.revoke.confirm.confirm-button': 'Zugriff widerrufen',
+  'mcp-settings.connected-apps.revoke.confirm.cancel-button': 'Abbrechen',
+  'mcp-settings.connected-apps.revoke.success': 'Zugriff widerrufen',
+  'mcp-settings.connected-apps.revoke.error':
+    'Der Zugriff konnte nicht widerrufen werden. Bitte versuchen Sie es erneut.',
   'oauth-consent.title': 'Zugriff auf Ihr Papra-Konto erlauben?',
   'oauth-consent.description': 'möchte sich über MCP mit Ihrem Papra-Konto verbinden.',
   'oauth-consent.unknown-application': 'Unbekannte Anwendung',
@@ -1011,6 +1034,9 @@ export const translations: Partial<TranslationsDictionary> = {
   'oauth-consent.scopes.offline_access': 'Verbunden bleiben, ohne erneut nachzufragen',
   'oauth-consent.revoke-hint':
     'Bestätigen Sie nur Anwendungen, denen Sie vertrauen. Die Anwendung kann nur das tun, was Sie hier erlauben, und nur in Organisationen, denen Sie angehören.',
+  'oauth-consent.revoke-later': 'Den Zugriff können Sie später widerrufen:',
+  'oauth-consent.revoke-later-link': 'MCP-Einstellungen',
+  'oauth-consent.scopes.destructive-cue': 'Löscht Daten',
   'oauth-consent.allow': 'Erlauben',
   'oauth-consent.deny': 'Ablehnen',
   'oauth-consent.error.submit':

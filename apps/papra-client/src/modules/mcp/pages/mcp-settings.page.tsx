@@ -5,6 +5,7 @@ import { useConfig } from '@/modules/config/config.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CopyButton } from '@/modules/shared/utils/copy';
 import { Badge } from '@/modules/ui/components/badge';
+import { ConnectedApps } from '../components/connected-apps';
 
 export const McpSettingsPage: Component = () => {
   const { t } = useI18n();
@@ -77,6 +78,10 @@ export const McpSettingsPage: Component = () => {
           </div>
         </Show>
       </div>
+
+      <Show when={config.mcp.isEnabled}>
+        <ConnectedApps />
+      </Show>
     </div>
   );
 };

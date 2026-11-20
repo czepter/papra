@@ -999,6 +999,18 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   }),
 
   ...defineHandler({
+    path: '/api/users/me/connected-apps',
+    method: 'GET',
+    handler: async () => ({ connectedApps: [] }),
+  }),
+
+  ...defineHandler({
+    path: '/api/users/me/connected-apps/:clientId',
+    method: 'DELETE',
+    handler: async () => {},
+  }),
+
+  ...defineHandler({
     path: '/api/invitations/count',
     method: 'GET',
     handler: async () => ({ pendingInvitationsCount: 0 }),
