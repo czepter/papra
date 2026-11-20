@@ -5,6 +5,7 @@ import * as v from 'valibot';
 import { createCustomPropertiesRepository } from '../../custom-properties/custom-properties.repository';
 import { DEFAULT_DOCUMENT_SEARCH_SORT } from '../../documents/document-search/document-search.constants';
 import { searchOrganizationDocuments } from '../../documents/document-search/document-search.usecase';
+import { createDocumentPreviewsRepository } from '../../document-previews/document-previews.repository';
 import { createDocumentSizeTooLargeError } from '../../documents/documents.errors';
 import { formatDocumentForApi, isDocumentSizeLimitEnabled } from '../../documents/documents.models';
 import { createDocumentsRepository } from '../../documents/documents.repository';
@@ -113,10 +114,12 @@ export const searchDocumentsTool = defineMcpTool({
       documents,
       tagsRepository: createTagsRepository({ db: deps.db }),
       customPropertiesRepository: createCustomPropertiesRepository({ db: deps.db }),
+      documentPreviewsRepository: createDocumentPreviewsRepository({ db: deps.db }),
+      arePreviewsEnabled: deps.config.documents.previews.isEnabled,
     });
 
     return {
-      documents: enrichedDocuments.map((document) => withContentLength(document)),
+      documents: enrichedDocuments,
       documentsCount,
     };
   },
@@ -139,6 +142,8 @@ export const getDocumentTool = defineMcpTool({
       document,
       tagsRepository: createTagsRepository({ db: deps.db }),
       customPropertiesRepository: createCustomPropertiesRepository({ db: deps.db }),
+      documentPreviewsRepository: createDocumentPreviewsRepository({ db: deps.db }),
+      arePreviewsEnabled: deps.config.documents.previews.isEnabled,
     });
 
     return { document: withContentLength(enrichedDocument) };
