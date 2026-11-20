@@ -47,7 +47,12 @@ export async function rotateImage({
   image: Buffer;
   degrees: 90 | 180 | 270;
 }): Promise<Buffer> {
-  return await sharp(image).rotate(degrees).png().toBuffer();
+  const { density } = await sharp(image).metadata();
+
+  // Keep the source density so Tesseract doesn't fall back to guessing the resolution
+  const rotated = sharp(image).rotate(degrees);
+
+  return await (density ? rotated.withMetadata({ density }) : rotated).png().toBuffer();
 }
 
 export async function detectOrientationWithTesseractCli({
