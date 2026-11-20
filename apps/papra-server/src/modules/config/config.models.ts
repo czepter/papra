@@ -49,6 +49,10 @@ export function getPublicConfig({
     autoTagging: {
       isEnabled: config.autoTagging.isEnabled && config.ai.isEnabled,
     },
+    mcp: {
+      isEnabled: config.mcp.enabled,
+      url: getMcpServerUrl({ config }).mcpServerUrl,
+    },
   };
 
   return {
@@ -59,6 +63,15 @@ export function getPublicConfig({
 export function getServerBaseUrl({ config }: { config: Config }) {
   return {
     serverBaseUrl: config.appBaseUrl ?? config.server.baseUrl,
+  };
+}
+
+// Built from the configured base URL only, never from the request Host header
+export function getMcpServerUrl({ config }: { config: Config }) {
+  const { serverBaseUrl } = getServerBaseUrl({ config });
+
+  return {
+    mcpServerUrl: `${serverBaseUrl.replace(/\/+$/, '')}/mcp`,
   };
 }
 

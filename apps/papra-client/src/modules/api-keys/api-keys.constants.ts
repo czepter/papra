@@ -8,6 +8,7 @@ export const API_KEY_PERMISSIONS = [
   { section: 'documents', permissions: Object.values(PERMISSIONS.DOCUMENTS) },
   { section: 'tags', permissions: Object.values(PERMISSIONS.TAGS) },
   { section: 'custom-properties', permissions: Object.values(PERMISSIONS.CUSTOM_PROPERTIES) },
+  { section: 'tagging-rules', permissions: Object.values(PERMISSIONS.TAGGING_RULES) },
 ] as const;
 
 export { API_KEY_PERMISSIONS_VALUES };

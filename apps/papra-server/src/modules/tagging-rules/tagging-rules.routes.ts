@@ -1,5 +1,6 @@
 import type { RouteDefinitionContext } from '../app/server.types';
 import * as v from 'valibot';
+import { API_KEY_PERMISSIONS } from '../api-keys/api-keys.constants';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
 import { organizationIdSchema } from '../organizations/organization.schemas';
@@ -8,9 +9,11 @@ import { ensureUserIsInOrganization } from '../organizations/organizations.useca
 import { createError } from '../shared/errors/errors';
 import { isNil } from '../shared/utils';
 import { validateJsonBody, validateParams } from '../shared/validation/validation';
+import { createTaggingRuleNotFoundError } from './tagging-rules.errors';
 import { createTaggingRulesRepository } from './tagging-rules.repository';
 import { taggingRuleBodySchema, taggingRuleIdSchema } from './tagging-rules.schemas';
-import { createTaggingRule } from './tagging-rules.usecases';
+import { createTagsRepository } from '../tags/tags.repository';
+import { createTaggingRule, ensureTagsBelongToOrganization } from './tagging-rules.usecases';
 
 export function registerTaggingRulesRoutes(context: RouteDefinitionContext) {
   setupGetOrganizationTaggingRulesRoute(context);
@@ -24,7 +27,7 @@ export function registerTaggingRulesRoutes(context: RouteDefinitionContext) {
 function setupGetOrganizationTaggingRulesRoute({ app, db }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/tagging-rules',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: [API_KEY_PERMISSIONS.TAGGING_RULES.READ] }),
     validateParams(
       v.strictObject({
         organizationId: organizationIdSchema,
@@ -54,7 +57,7 @@ function setupGetOrganizationTaggingRulesRoute({ app, db }: RouteDefinitionConte
 function setupCreateTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
   app.post(
     '/api/organizations/:organizationId/tagging-rules',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: [API_KEY_PERMISSIONS.TAGGING_RULES.CREATE] }),
     validateParams(
       v.strictObject({
         organizationId: organizationIdSchema,
@@ -73,13 +76,19 @@ function setupCreateTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
+      const { tagIds: uniqueTagIds } = await ensureTagsBelongToOrganization({
+        tagIds,
+        organizationId,
+        tagsRepository: createTagsRepository({ db }),
+      });
+
       await createTaggingRule({
         name,
         description,
         enabled,
         conditionMatchMode,
         conditions,
-        tagIds,
+        tagIds: uniqueTagIds,
         organizationId,
         taggingRulesRepository,
       });
@@ -92,7 +101,7 @@ function setupCreateTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
 function setupDeleteTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
   app.delete(
     '/api/organizations/:organizationId/tagging-rules/:taggingRuleId',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: [API_KEY_PERMISSIONS.TAGGING_RULES.DELETE] }),
     validateParams(
       v.strictObject({
         organizationId: organizationIdSchema,
@@ -119,7 +128,7 @@ function setupDeleteTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
 function setupGetTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/tagging-rules/:taggingRuleId',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: [API_KEY_PERMISSIONS.TAGGING_RULES.READ] }),
     validateParams(
       v.strictObject({
         organizationId: organizationIdSchema,
@@ -141,6 +150,10 @@ function setupGetTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
         taggingRuleId,
       });
 
+      if (isNil(taggingRule)) {
+        throw createTaggingRuleNotFoundError();
+      }
+
       return context.json({
         taggingRule,
       });
@@ -151,7 +164,7 @@ function setupGetTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
 function setupUpdateTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
   app.put(
     '/api/organizations/:organizationId/tagging-rules/:taggingRuleId',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: [API_KEY_PERMISSIONS.TAGGING_RULES.UPDATE] }),
     validateParams(
       v.strictObject({
         organizationId: organizationIdSchema,
@@ -171,10 +184,23 @@ function setupUpdateTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
+      const { tagIds: uniqueTagIds } = await ensureTagsBelongToOrganization({
+        tagIds,
+        organizationId,
+        tagsRepository: createTagsRepository({ db }),
+      });
+
       await taggingRulesRepository.updateOrganizationTaggingRule({
         organizationId,
         taggingRuleId,
-        taggingRule: { name, description, enabled, conditionMatchMode, conditions, tagIds },
+        taggingRule: {
+          name,
+          description,
+          enabled,
+          conditionMatchMode,
+          conditions,
+          tagIds: uniqueTagIds,
+        },
       });
 
       return context.body(null, 204);
@@ -185,7 +211,12 @@ function setupUpdateTaggingRuleRoute({ app, db }: RouteDefinitionContext) {
 function setupApplyTaggingRuleRoute({ app, db, taskServices }: RouteDefinitionContext) {
   app.post(
     '/api/organizations/:organizationId/tagging-rules/:taggingRuleId/apply',
-    requireAuthentication(),
+    requireAuthentication({
+      apiKeyPermissions: [
+        API_KEY_PERMISSIONS.TAGGING_RULES.READ,
+        API_KEY_PERMISSIONS.DOCUMENTS.UPDATE,
+      ],
+    }),
     validateParams(
       v.strictObject({
         organizationId: organizationIdSchema,

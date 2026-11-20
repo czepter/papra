@@ -7,6 +7,7 @@ import { buildOrganizationsApiRoutes } from '../organizations/organizations.api.
 import { buildUserApiRoutes } from '../users/users.api.routes';
 import { buildTagsApiRoutes } from '../tags/tags.api.routes';
 import { buildDocumentEnrichmentApiRoutes } from '../document-enrichment/document-enrichment.api.routes';
+import { buildMcpConnectedAppsApiRoutes } from '../mcp/mcp.connected-apps.api.routes';
 import { buildHealthCheckApiRoutes } from './health-check/health-check.api.routes';
 import {
   buildGetApiKey,
@@ -23,6 +24,7 @@ function buildApiRoutes(deps: ApiDependencies) {
     ...buildOrganizationsApiRoutes(deps),
     ...buildTagsApiRoutes(deps),
     ...buildDocumentEnrichmentApiRoutes(deps),
+    ...(deps.config.mcp.enabled ? buildMcpConnectedAppsApiRoutes(deps) : []),
   ];
 }
 

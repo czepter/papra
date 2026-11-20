@@ -34,6 +34,12 @@ export const API_KEY_PERMISSIONS = {
     UPDATE: 'custom-properties:update',
     DELETE: 'custom-properties:delete',
   },
+  TAGGING_RULES: {
+    CREATE: 'tagging-rules:create',
+    READ: 'tagging-rules:read',
+    UPDATE: 'tagging-rules:update',
+    DELETE: 'tagging-rules:delete',
+  },
 } as const;
 
 export const API_KEY_PERMISSIONS_VALUES = Object.values(API_KEY_PERMISSIONS).flatMap(

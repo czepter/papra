@@ -8,21 +8,33 @@ import { DOCUMENT_ID_REGEX, OCR_LANGUAGES } from './documents.constants';
 
 export const documentIdSchema = createRegexSchema(DOCUMENT_ID_REGEX);
 
+export const updateDocumentBodyEntries = {
+  name: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(255))),
+  content: v.optional(v.string()),
+  documentDate: v.optional(v.nullable(v.pipe(v.string(), v.toDate()))),
+  notes: v.optional(v.pipe(v.string(), v.maxLength(2048))),
+};
+
+export const UPDATE_DOCUMENT_BODY_EMPTY_MESSAGE =
+  "At least one of 'name', 'content', 'documentDate' or 'notes' must be provided";
+
+export function hasAnyDocumentUpdate(data: {
+  name?: unknown;
+  content?: unknown;
+  documentDate?: unknown;
+  notes?: unknown;
+}) {
+  return (
+    data.name !== undefined ||
+    data.content !== undefined ||
+    data.documentDate !== undefined ||
+    data.notes !== undefined
+  );
+}
+
 export const updateDocumentBodySchema = v.pipe(
-  v.strictObject({
-    name: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(255))),
-    content: v.optional(v.string()),
-    documentDate: v.optional(v.nullable(v.pipe(v.string(), v.toDate()))),
-    notes: v.optional(v.pipe(v.string(), v.maxLength(2048))),
-  }),
-  v.check(
-    (data) =>
-      data.name !== undefined ||
-      data.content !== undefined ||
-      data.documentDate !== undefined ||
-      data.notes !== undefined,
-    "At least one of 'name', 'content', 'documentDate' or 'notes' must be provided",
-  ),
+  v.strictObject(updateDocumentBodyEntries),
+  v.check((data) => hasAnyDocumentUpdate(data), UPDATE_DOCUMENT_BODY_EMPTY_MESSAGE),
 );
 
 export const ocrLanguagesSchema = v.array(v.picklist(OCR_LANGUAGES));

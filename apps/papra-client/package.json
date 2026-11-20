@@ -23,6 +23,7 @@
     "script:generate-demo-documents-fixtures": "tsx src/scripts/generate-demo-documents-fixtures.script.ts"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "catalog:",
     "@branchlet/core": "^1.0.0",
     "@corentinth/chisels": "catalog:",
     "@corvu/calendar": "^0.1.2",

@@ -64,6 +64,8 @@ describe('config models', () => {
         organizations: {
           deletedOrganizationsPurgeDaysDelay: 30,
         },
+        appBaseUrl: 'https://x.example',
+        mcp: { enabled: true },
       } as DeepPartial<Config>);
 
       const result = getPublicConfig({
@@ -121,11 +123,44 @@ describe('config models', () => {
           autoTagging: {
             isEnabled: false,
           },
+          mcp: {
+            isEnabled: true,
+            url: 'https://x.example/mcp',
+          },
         },
       });
       expect(v.parse(publicConfigSchema, JSON.parse(JSON.stringify(result.publicConfig)))).toEqual(
         result.publicConfig,
       );
+    });
+
+    test('exposes the mcp server state and url, built from the configured base url', () => {
+      const intakeEmailsServices = { getDomains: () => [] };
+
+      expect(
+        getPublicConfig({
+          config: overrideConfig({ appBaseUrl: 'https://x.example', mcp: { enabled: true } }),
+          intakeEmailsServices,
+        }).publicConfig.mcp,
+      ).to.eql({ isEnabled: true, url: 'https://x.example/mcp' });
+
+      expect(
+        getPublicConfig({
+          config: overrideConfig({ appBaseUrl: 'https://x.example/', mcp: { enabled: true } }),
+          intakeEmailsServices,
+        }).publicConfig.mcp.url,
+      ).to.eql('https://x.example/mcp');
+
+      expect(
+        getPublicConfig({
+          config: overrideConfig({ appBaseUrl: 'https://x.example', mcp: { enabled: false } }),
+          intakeEmailsServices,
+        }).publicConfig.mcp,
+      ).to.eql({ isEnabled: false, url: 'https://x.example/mcp' });
+    });
+
+    test('the mcp server is enabled by default', () => {
+      expect(overrideConfig().mcp.enabled).to.eql(true);
     });
 
     test('exposes an empty domain list when the intake email driver has no selectable domains', () => {

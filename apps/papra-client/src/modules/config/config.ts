@@ -94,6 +94,10 @@ export const buildTimeConfig = {
   autoTagging: {
     isEnabled: false,
   },
+  mcp: {
+    isEnabled: false as boolean,
+    url: '',
+  },
 } as const;
 
 export type Config = typeof buildTimeConfig;
@@ -107,4 +111,5 @@ export type RuntimePublicConfig = Pick<
   | 'intakeEmails'
   | 'organizations'
   | 'autoTagging'
+  | 'mcp'
 >;

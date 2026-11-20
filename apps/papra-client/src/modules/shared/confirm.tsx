@@ -46,6 +46,8 @@ export const ConfirmModalProvider: ParentComponent = (props) => {
   const [getConfig, setConfig] = createSignal<ConfirmModalConfig | undefined>();
   const [getResolve, setResolve] = createSignal<((isConfirmed: boolean) => void) | undefined>();
   const [getTypedText, setTypedText] = createSignal<string>('');
+  // The element that had focus when the dialog was requested (usually the button that opened it)
+  let opener: HTMLElement | undefined;
 
   const confirm = async ({
     title,
@@ -54,6 +56,7 @@ export const ConfirmModalProvider: ParentComponent = (props) => {
     cancelButton,
     shouldType,
   }: ConfirmModalConfig) => {
+    opener = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     setConfig({
       title,
       message,
@@ -100,7 +103,17 @@ export const ConfirmModalProvider: ParentComponent = (props) => {
   return (
     <ConfirmModalContext.Provider value={{ confirm }}>
       <Dialog open={getIsOpen()} onOpenChange={onOpenChange}>
-        <DialogContent class="sm:max-w-[425px]">
+        <DialogContent
+          class="sm:max-w-[425px]"
+          onCloseAutoFocus={(event: Event) => {
+            // Give focus back to what opened the dialog, whatever way it was closed (Escape, Cancel, confirm)
+            event.preventDefault();
+            if (opener?.isConnected) {
+              opener.focus();
+            }
+            opener = undefined;
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{getConfig()?.title ?? 'Confirm ?'}</DialogTitle>
             {getConfig()?.message && <DialogDescription>{getConfig()?.message}</DialogDescription>}
