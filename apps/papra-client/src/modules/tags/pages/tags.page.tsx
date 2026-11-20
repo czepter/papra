@@ -43,7 +43,15 @@ import {
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { Tag as TagComponent, TagLink } from '../components/tag.component';
-import { createTag, deleteTag, fetchTags, updateTag } from '../tags.services';
+import {
+  createTag,
+  deleteTag,
+  fetchPinnedTags,
+  fetchTags,
+  pinTag,
+  unpinTag,
+  updateTag,
+} from '../tags.services';
 
 // To keep, useful for generating swatches
 // function generateSwatches(count = 9, saturation = 100, lightness = 74) {
@@ -328,6 +336,30 @@ export const TagsPage: Component = () => {
     queryFn: async () => fetchTags({ organizationId: params.organizationId }),
   }));
 
+  const pinnedTagsQuery = useQuery(() => ({
+    queryKey: ['organizations', params.organizationId, 'tags', 'pinned'],
+    queryFn: async () => fetchPinnedTags({ organizationId: params.organizationId }),
+  }));
+
+  const isPinned = (tagId: string) =>
+    (pinnedTagsQuery.data?.pinnedTags ?? []).some((tag) => tag.id === tagId);
+
+  const togglePinMutation = useMutation(() => ({
+    mutationFn: async ({ tagId, pinned }: { tagId: string; pinned: boolean }) =>
+      pinned
+        ? unpinTag({ organizationId: params.organizationId, tagId })
+        : pinTag({ organizationId: params.organizationId, tagId }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['organizations', params.organizationId, 'tags', 'pinned'],
+        refetchType: 'all',
+      });
+    },
+    onError: (error) => {
+      createToast({ message: getErrorMessage({ error }), type: 'error' });
+    },
+  }));
+
   const del = async ({ tag }: { tag: TagType }) => {
     const confirmed = await confirm({
       title: t('tags.delete.confirm.title'),
@@ -425,6 +457,30 @@ export const TagsPage: Component = () => {
         enableSorting: false,
         cell: (data) => (
           <div class="flex gap-2 justify-end">
+            <Button
+              size="icon"
+              variant="outline"
+              class="size-7"
+              title={isPinned(data.row.original.id) ? t('tags.unpin') : t('tags.pin')}
+              aria-label={isPinned(data.row.original.id) ? t('tags.unpin') : t('tags.pin')}
+              aria-pressed={isPinned(data.row.original.id)}
+              disabled={togglePinMutation.isPending}
+              onClick={() =>
+                togglePinMutation.mutate({
+                  tagId: data.row.original.id,
+                  pinned: isPinned(data.row.original.id),
+                })
+              }
+            >
+              <div
+                class={
+                  isPinned(data.row.original.id)
+                    ? 'i-tabler-pin-filled size-4'
+                    : 'i-tabler-pin size-4'
+                }
+              />
+            </Button>
+
             <UpdateTagModal organizationId={params.organizationId} tag={data.row.original}>
               {(props) => (
                 <Button size="icon" variant="outline" class="size-7" {...props}>

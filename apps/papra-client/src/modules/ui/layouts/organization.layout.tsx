@@ -6,6 +6,8 @@ import { A, useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, on, Show } from 'solid-js';
 import { useConfig } from '@/modules/config/config.provider';
+import { makeDocumentSearchPermalink } from '@/modules/documents/document.models';
+import { fetchPinnedTags } from '@/modules/tags/tags.services';
 import { fetchDocumentViews } from '@/modules/document-views/document-views.services';
 import {
   DocumentUploadProvider,
@@ -92,6 +94,46 @@ const OrganizationLayoutSideNav: Component = () => {
     queryFn: async () => fetchDocumentViews({ organizationId: params.organizationId }),
   }));
 
+  const pinnedTagsQuery = useQuery(() => ({
+    queryKey: ['organizations', params.organizationId, 'tags', 'pinned'],
+    queryFn: async () => fetchPinnedTags({ organizationId: params.organizationId }),
+  }));
+
+  const getPinnedTagsSections = () => {
+    const pinnedTags = pinnedTagsQuery.data?.pinnedTags ?? [];
+
+    if (pinnedTags.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        label: t('layout.menu.pinned-tags'),
+        items: [
+          ...pinnedTags.map((tag) => ({
+            label: tag.name,
+            icon: 'i-tabler-tag',
+            leading: (
+              <span
+                class="size-2.5 mx-1.25 rounded-full flex-shrink-0 border border-black/10 dark:border-white/10"
+                style={{ 'background-color': tag.color }}
+              />
+            ),
+            href: makeDocumentSearchPermalink({
+              organizationId: params.organizationId,
+              search: { tags: [tag] },
+            }),
+          })),
+          {
+            label: t('layout.menu.all-tags'),
+            icon: 'i-tabler-dots',
+            href: `/organizations/${params.organizationId}/tags`,
+          },
+        ],
+      },
+    ];
+  };
+
   const getDocumentViewsSections = () => {
     const documentViews = documentViewsQuery.data?.documentViews ?? [];
 
@@ -151,6 +193,7 @@ const OrganizationLayoutSideNav: Component = () => {
         },
       ],
     },
+    ...getPinnedTagsSections(),
     ...getDocumentViewsSections(),
   ];
 

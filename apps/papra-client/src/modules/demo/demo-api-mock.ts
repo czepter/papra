@@ -16,6 +16,7 @@ import {
   documentStorage,
   documentViewStorage,
   organizationStorage,
+  pinnedTagStorage,
   tagDocumentStorage,
   taggingRuleStorage,
   tagStorage,
@@ -475,6 +476,60 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   }),
 
   ...defineHandler({
+    path: '/api/organizations/:organizationId/tags/pinned',
+    method: 'GET',
+    handler: async ({ params: { organizationId } }) => {
+      const organization = await organizationStorage.getItem(organizationId);
+
+      assert(organization, { status: 403 });
+
+      const pins = await findMany(pinnedTagStorage, (pin) => pin.organizationId === organizationId);
+      const tags = await findMany(tagStorage, (tag) => tag.organizationId === organizationId);
+
+      const pinnedTags = pins
+        .toSorted((a, b) => a.position - b.position)
+        .flatMap((pin) => tags.filter((tag) => tag.id === pin.tagId));
+
+      return { pinnedTags };
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/tags/:tagId/pin',
+    method: 'POST',
+    handler: async ({ params: { organizationId, tagId } }) => {
+      const organization = await organizationStorage.getItem(organizationId);
+
+      assert(organization, { status: 403 });
+
+      const tag = await tagStorage.getItem(tagId);
+
+      assert(tag && tag.organizationId === organizationId, { status: 404 });
+
+      if (await pinnedTagStorage.getItem(tagId)) {
+        return;
+      }
+
+      const pins = await findMany(pinnedTagStorage, (pin) => pin.organizationId === organizationId);
+      const position = Math.max(-1, ...pins.map((pin) => pin.position)) + 1;
+
+      await pinnedTagStorage.setItem(tagId, { tagId, organizationId, position });
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/tags/:tagId/pin',
+    method: 'DELETE',
+    handler: async ({ params: { organizationId, tagId } }) => {
+      const organization = await organizationStorage.getItem(organizationId);
+
+      assert(organization, { status: 403 });
+
+      await pinnedTagStorage.removeItem(tagId);
+    },
+  }),
+
+  ...defineHandler({
     path: '/api/organizations/:organizationId/tags',
     method: 'GET',
     handler: async ({ params: { organizationId } }) => {
@@ -579,6 +634,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       assert(organization, { status: 403 });
 
       await tagStorage.removeItem(tagId);
+      await pinnedTagStorage.removeItem(tagId);
 
       const tagDocuments = await findMany(
         tagDocumentStorage,

@@ -7,6 +7,8 @@ import { Button } from './button';
 export type SideNavMenuItem = {
   label: string;
   icon: string;
+  // Replaces the icon when provided, e.g. a colored dot
+  leading?: JSX.Element;
   href?: string;
   onClick?: () => void;
   badge?: JSX.Element;
@@ -32,7 +34,9 @@ const MenuItemButton: Component<SideNavMenuItem> = (props) => {
             end: true,
           } as ComponentProps<typeof Button>))}
     >
-      <div class={cn(props.icon, 'size-5 text-muted-foreground opacity-50 flex-shrink-0')} />
+      {props.leading ?? (
+        <div class={cn(props.icon, 'size-5 text-muted-foreground opacity-50 flex-shrink-0')} />
+      )}
       <div class="truncate">{props.label}</div>
       {props.badge && <div class="ml-auto">{props.badge}</div>}
     </Button>

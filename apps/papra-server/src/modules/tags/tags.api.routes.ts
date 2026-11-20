@@ -10,11 +10,16 @@ import {
   addOrganizationDocumentTagContract,
   createOrganizationTagContract,
   deleteOrganizationTagContract,
+  getOrganizationPinnedTagsContract,
   getOrganizationTagsContract,
+  pinOrganizationTagContract,
   removeOrganizationDocumentTagContract,
+  reorderOrganizationPinnedTagsContract,
+  unpinOrganizationTagContract,
   updateOrganizationTagContract,
 } from './tags.api.contracts';
 import { createTagCreationFailedError, createTagNotFoundError } from './tags.errors';
+import { createPinnedTagsRepository } from './pinned-tags.repository';
 import { createTagsRepository } from './tags.repository';
 import { addTagToDocument, createTag } from './tags.usecases';
 
@@ -26,6 +31,10 @@ export function buildTagsApiRoutes(deps: ApiDependencies) {
     setupDeleteOrganizationTagRoute(deps),
     setupAddTagToDocumentRoute(deps),
     setupRemoveTagFromDocumentRoute(deps),
+    setupGetPinnedTagsRoute(deps),
+    setupPinTagRoute(deps),
+    setupUnpinTagRoute(deps),
+    setupReorderPinnedTagsRoute(deps),
   ];
 }
 
@@ -259,6 +268,91 @@ function setupGetOrganizationTagsRoute({ resolveAuthenticationContext, db }: Api
           })),
         },
       };
+    },
+  });
+}
+
+function setupGetPinnedTagsRoute({ resolveAuthenticationContext, db }: ApiDependencies) {
+  return defineApiRoute({
+    contract: getOrganizationPinnedTagsContract,
+    resolveContext: resolveAuthenticationContext({ apiKeyPermissions: ['tags:read'] }),
+    handler: async ({ context: { userId }, params: { organizationId } }) => {
+      const pinnedTagsRepository = createPinnedTagsRepository({ db });
+      const organizationsRepository = createOrganizationsRepository({ db });
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const { pinnedTags } = await pinnedTagsRepository.getPinnedTags({ userId, organizationId });
+
+      return {
+        status: 200,
+        contentType: 'application/json',
+        body: {
+          pinnedTags: pinnedTags.map((tag) => ({
+            ...tag,
+            createdAt: tag.createdAt.toISOString(),
+            updatedAt: tag.updatedAt.toISOString(),
+          })),
+        },
+      };
+    },
+  });
+}
+
+function setupPinTagRoute({ resolveAuthenticationContext, db }: ApiDependencies) {
+  return defineApiRoute({
+    contract: pinOrganizationTagContract,
+    resolveContext: resolveAuthenticationContext({ apiKeyPermissions: ['tags:update'] }),
+    handler: async ({ context: { userId }, params: { organizationId, tagId } }) => {
+      const tagsRepository = createTagsRepository({ db });
+      const pinnedTagsRepository = createPinnedTagsRepository({ db });
+      const organizationsRepository = createOrganizationsRepository({ db });
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const { tag } = await tagsRepository.getTagById({ tagId, organizationId });
+
+      if (!tag) {
+        throw createTagNotFoundError();
+      }
+
+      await pinnedTagsRepository.pinTag({ userId, organizationId, tagId });
+
+      return { status: 204 };
+    },
+  });
+}
+
+function setupUnpinTagRoute({ resolveAuthenticationContext, db }: ApiDependencies) {
+  return defineApiRoute({
+    contract: unpinOrganizationTagContract,
+    resolveContext: resolveAuthenticationContext({ apiKeyPermissions: ['tags:update'] }),
+    handler: async ({ context: { userId }, params: { organizationId, tagId } }) => {
+      const pinnedTagsRepository = createPinnedTagsRepository({ db });
+      const organizationsRepository = createOrganizationsRepository({ db });
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      await pinnedTagsRepository.unpinTag({ userId, organizationId, tagId });
+
+      return { status: 204 };
+    },
+  });
+}
+
+function setupReorderPinnedTagsRoute({ resolveAuthenticationContext, db }: ApiDependencies) {
+  return defineApiRoute({
+    contract: reorderOrganizationPinnedTagsContract,
+    resolveContext: resolveAuthenticationContext({ apiKeyPermissions: ['tags:update'] }),
+    handler: async ({ context: { userId }, params: { organizationId }, body: { tagIds } }) => {
+      const pinnedTagsRepository = createPinnedTagsRepository({ db });
+      const organizationsRepository = createOrganizationsRepository({ db });
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      await pinnedTagsRepository.reorderPinnedTags({ userId, organizationId, tagIds });
+
+      return { status: 204 };
     },
   });
 }
