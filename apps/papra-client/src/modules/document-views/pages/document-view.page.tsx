@@ -4,6 +4,8 @@ import { safely } from '@corentinth/chisels';
 import { useNavigate, useParams } from '@solidjs/router';
 import { keepPreviousData, useQuery } from '@tanstack/solid-query';
 import { createSignal, Show, Suspense } from 'solid-js';
+import { DocumentQuickLook } from '@/modules/documents/components/document-quick-look.component';
+import { DocumentsViewToggle } from '@/modules/documents/components/documents-view-toggle.component';
 import {
   createdAtColumn,
   documentDateColumn,
@@ -11,6 +13,12 @@ import {
   standardActionsColumn,
   tagsColumn,
 } from '@/modules/documents/components/documents-list.component';
+import {
+  createDocumentsKeyboardNavigation,
+  getDocumentElement,
+} from '@/modules/documents/documents-keyboard.composables';
+import { createDocumentsViewPreference } from '@/modules/documents/documents-view-preference.composables';
+import { getSingleTagFromSearchQuery } from '@/modules/documents/documents-view-preference.models';
 import { fetchOrganizationDocuments } from '@/modules/documents/documents.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useConfirmModal } from '@/modules/shared/confirm';
@@ -36,6 +44,7 @@ export const DocumentViewPage: Component = () => {
   const { getErrorMessage } = useI18nApiErrors({ t });
   const [getPagination, setPagination] = createParamSynchronizedPagination();
   const [getIsUpdateOpen, setIsUpdateOpen] = createSignal(false);
+  const [getQuickLookId, setQuickLookId] = createSignal<string>();
 
   const deleteDocumentViewConfirm = async () => {
     const confirmed = await confirm({
@@ -104,6 +113,26 @@ export const DocumentViewPage: Component = () => {
     placeholderData: keepPreviousData,
   }));
 
+  const getViewQuery = () => documentViewQuery.data?.documentView?.query ?? '';
+
+  // Shares the per-tag preference with the documents page filtered by the same single tag
+  const viewPreference = createDocumentsViewPreference({
+    getOrganizationId: () => params.organizationId,
+    getTagName: () => getSingleTagFromSearchQuery({ query: getViewQuery() }),
+  });
+
+  const keyboardNavigation = createDocumentsKeyboardNavigation({
+    getDocuments: () => documentsQuery.data?.documents ?? [],
+    getView: viewPreference.getView,
+    isEnabled: () => getQuickLookId() === undefined,
+    onOpen: (document) => setQuickLookId(document.id),
+  });
+
+  function openQuickLook(document: { id: string }) {
+    keyboardNavigation.setFocusedId(document.id);
+    setQuickLookId(document.id);
+  }
+
   return (
     <div class="p-6 mt-4 pb-32 max-w-5xl mx-auto">
       <Suspense>
@@ -116,37 +145,44 @@ export const DocumentViewPage: Component = () => {
                     <div class="i-tabler-layout-list size-5 text-muted-foreground" />
                     <h2 class="text-xl font-bold">{getDocumentView().name}</h2>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      as={(triggerProps: DropdownMenuSubTriggerProps) => (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t('document-views.actions.menu')}
-                          {...triggerProps}
-                        >
-                          <div class="i-tabler-dots-vertical size-4" />
-                        </Button>
-                      )}
+                  <div class="flex items-center gap-2">
+                    <DocumentsViewToggle
+                      view={viewPreference.getView()}
+                      onViewChange={viewPreference.setView}
+                      isSavedForTag={viewPreference.hasTagOverride()}
                     />
-                    <DropdownMenuContent class="w-48">
-                      <DropdownMenuItem
-                        class="cursor-pointer"
-                        onClick={() => setIsUpdateOpen(true)}
-                      >
-                        <div class="i-tabler-edit size-4 mr-2" />
-                        <span>{t('document-views.update')}</span>
-                      </DropdownMenuItem>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        as={(triggerProps: DropdownMenuSubTriggerProps) => (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t('document-views.actions.menu')}
+                            {...triggerProps}
+                          >
+                            <div class="i-tabler-dots-vertical size-4" />
+                          </Button>
+                        )}
+                      />
+                      <DropdownMenuContent class="w-48">
+                        <DropdownMenuItem
+                          class="cursor-pointer"
+                          onClick={() => setIsUpdateOpen(true)}
+                        >
+                          <div class="i-tabler-edit size-4 mr-2" />
+                          <span>{t('document-views.update')}</span>
+                        </DropdownMenuItem>
 
-                      <DropdownMenuItem
-                        class="cursor-pointer text-red"
-                        onClick={deleteDocumentViewConfirm}
-                      >
-                        <div class="i-tabler-trash size-4 mr-2" />
-                        <span>{t('document-views.delete')}</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <DropdownMenuItem
+                          class="cursor-pointer text-red"
+                          onClick={deleteDocumentViewConfirm}
+                        >
+                          <div class="i-tabler-trash size-4 mr-2" />
+                          <span>{t('document-views.delete')}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
                 <code class="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
                   {getDocumentView().query}
@@ -172,6 +208,9 @@ export const DocumentViewPage: Component = () => {
                     documentsCount={getData().documentsCount}
                     getPagination={getPagination}
                     setPagination={setPagination}
+                    view={viewPreference.getView()}
+                    focusedDocumentId={keyboardNavigation.getFocusedId()}
+                    onQuickLook={openQuickLook}
                     extraColumns={[
                       tagsColumn,
                       documentDateColumn,
@@ -181,6 +220,18 @@ export const DocumentViewPage: Component = () => {
                   />
                 )}
               </Show>
+
+              <DocumentQuickLook
+                documents={documentsQuery.data?.documents ?? []}
+                documentId={getQuickLookId()}
+                searchQuery={getViewQuery()}
+                onDocumentChange={(documentId) => {
+                  keyboardNavigation.setFocusedId(documentId);
+                  setQuickLookId(documentId);
+                  getDocumentElement({ documentId })?.scrollIntoView({ block: 'nearest' });
+                }}
+                onClose={() => setQuickLookId(undefined)}
+              />
 
               <Show when={documentsQuery.data?.documentsCount === 0}>
                 <div class="text-center py-16 text-muted-foreground">
