@@ -23,7 +23,7 @@ import {
   taggingRuleConditionsTable,
   taggingRulesTable,
 } from '../../tagging-rules/tagging-rules.tables';
-import { documentsTagsTable, tagsTable } from '../../tags/tags.table';
+import { documentsTagsTable, tagsTable, userPinnedTagsTable } from '../../tags/tags.table';
 import { usersTable } from '../../users/users.table';
 import {
   webhookDeliveriesTable,
@@ -77,6 +77,7 @@ const seedTables = {
   taggingRules: taggingRulesTable,
   tags: tagsTable,
   twoFactor: twoFactorTable,
+  userPinnedTags: userPinnedTagsTable,
   userRoles: userRolesTable,
   users: usersTable,
   webhookDeliveries: webhookDeliveriesTable,
