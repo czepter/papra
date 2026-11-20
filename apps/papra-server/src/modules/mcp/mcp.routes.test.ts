@@ -425,6 +425,16 @@ describe('mcp routes', () => {
       }
     });
 
+    test('the oauth consent page cannot be framed', async () => {
+      const { app } = await setup({ config: { server: { servePublicDir: true } } });
+
+      const response = await app.request('/oauth/consent?client_id=x');
+
+      expect(response.status).to.eql(200);
+      expect(response.headers.get('x-frame-options')).to.eql('DENY');
+      expect(response.headers.get('content-security-policy')).to.eql("frame-ancestors 'none'");
+    });
+
     test('/.well-known paths are not swallowed by the SPA fallback: metadata is json, unknown paths are a plain 404', async () => {
       const { app } = await setup({ config: { server: { servePublicDir: true } } });
 
