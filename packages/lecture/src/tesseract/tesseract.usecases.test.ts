@@ -1,6 +1,19 @@
 import { Buffer } from 'node:buffer';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
 import { describe, expect, test } from 'vitest';
-import { createTesseractCliExtractor, isTesseractCliAvailable } from './tesseract.usecases';
+import {
+  createTesseractCliExtractor,
+  createTesseractJsExtractor,
+  isTesseractCliAvailable,
+} from './tesseract.usecases';
+
+const upsideDownPagePath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../fixtures/023-upside-down-scanned-png/023.input.png',
+);
 
 const imageBuffer = Buffer.from(
   // Lorem ipsum image in base64
@@ -18,6 +31,35 @@ describe('tesseract usecases', () => {
       const result = await extract(imageBuffer);
 
       expect(result).to.eql('Lorem ipsum dolor sit amet');
+    });
+  });
+
+  describe('createTesseractJsExtractor auto rotation', () => {
+    test('an upside down page is read correctly', { timeout: 30_000 }, async () => {
+      const page = await readFile(upsideDownPagePath);
+
+      const text = await createTesseractJsExtractor()(page);
+
+      expect(text).to.include('IBAN: DE89 3704');
+    });
+
+    test('a page rotated by a quarter turn is read correctly', { timeout: 30_000 }, async () => {
+      const page = await sharp(await readFile(upsideDownPagePath))
+        .rotate(90)
+        .png()
+        .toBuffer();
+
+      const text = await createTesseractJsExtractor()(page);
+
+      expect(text).to.include('IBAN: DE89 3704');
+    });
+
+    test('the page is not rotated when autoRotate is disabled', { timeout: 30_000 }, async () => {
+      const page = await readFile(upsideDownPagePath);
+
+      const text = await createTesseractJsExtractor({ autoRotate: false })(page);
+
+      expect(text).to.not.include('IBAN');
     });
   });
 });

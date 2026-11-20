@@ -5,6 +5,8 @@ export type ExtractorConfig = {
     languages: string[];
     forceJs?: boolean;
     binary?: string;
+    // Detect and fix the page orientation (upside down, sideways) before OCR, enabled by default
+    autoRotate?: boolean;
   };
 };
 

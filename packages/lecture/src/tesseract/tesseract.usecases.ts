@@ -3,6 +3,11 @@ import { createWorker } from 'tesseract.js';
 import { x as exec } from 'tinyexec';
 import { castToBuffer } from '../utils/buffer';
 import { memoize } from '../utils/memoize';
+import {
+  correctOrientation,
+  detectOrientationWithTesseractCli,
+  detectOrientationWithTesseractJs,
+} from './orientation.usecases';
 
 export async function isTesseractCliAvailable({
   binary = 'tesseract',
@@ -30,16 +35,28 @@ export const isTesseractCliAvailableMemoized = memoize(
 export function createTesseractCliExtractor({
   binary = 'tesseract',
   languages: factoryLanguages = ['eng'],
-}: { binary?: string; languages?: string[] } = {}) {
+  autoRotate: factoryAutoRotate = true,
+}: { binary?: string; languages?: string[]; autoRotate?: boolean } = {}) {
   return async (
     maybeArrayBuffer: ArrayBuffer | Buffer,
-    { languages = factoryLanguages }: { languages?: string[] } = {},
+    {
+      languages = factoryLanguages,
+      autoRotate = factoryAutoRotate,
+    }: { languages?: string[]; autoRotate?: boolean } = {},
   ): Promise<string> => {
     try {
+      const image = autoRotate
+        ? await correctOrientation({
+            image: castToBuffer(maybeArrayBuffer),
+            detectOrientation: async ({ image }) =>
+              await detectOrientationWithTesseractCli({ image, binary }),
+          })
+        : castToBuffer(maybeArrayBuffer);
+
       const proc = exec(binary, ['stdin', 'stdout', '-l', languages.join('+')], {
         throwOnError: true,
       });
-      proc.process?.stdin?.end(castToBuffer(maybeArrayBuffer));
+      proc.process?.stdin?.end(image);
 
       const { stdout } = await proc;
 
@@ -52,17 +69,28 @@ export function createTesseractCliExtractor({
 
 export function createTesseractJsExtractor({
   languages: factoryLanguages = ['eng'],
-}: { languages?: string[] } = {}) {
+  autoRotate: factoryAutoRotate = true,
+}: { languages?: string[]; autoRotate?: boolean } = {}) {
   return async (
     maybeArrayBuffer: ArrayBuffer | Buffer,
-    { languages = factoryLanguages }: { languages?: string[] } = {},
+    {
+      languages = factoryLanguages,
+      autoRotate = factoryAutoRotate,
+    }: { languages?: string[]; autoRotate?: boolean } = {},
   ): Promise<string> => {
     try {
+      const image = autoRotate
+        ? await correctOrientation({
+            image: castToBuffer(maybeArrayBuffer),
+            detectOrientation: detectOrientationWithTesseractJs,
+          })
+        : castToBuffer(maybeArrayBuffer);
+
       const worker = await createWorker(languages);
 
       const {
         data: { text },
-      } = await worker.recognize(castToBuffer(maybeArrayBuffer));
+      } = await worker.recognize(image);
       await worker.terminate();
 
       return text?.trim();
@@ -76,17 +104,18 @@ export async function createTesseractExtractor({
   forceJs = false,
   binary,
   languages,
-}: { binary?: string; forceJs?: boolean; languages?: string[] } = {}) {
+  autoRotate,
+}: { binary?: string; forceJs?: boolean; languages?: string[]; autoRotate?: boolean } = {}) {
   const isCliAvailable = await isTesseractCliAvailableMemoized({ binary });
 
   if (isCliAvailable && !forceJs) {
     return {
-      extract: createTesseractCliExtractor({ binary, languages }),
+      extract: createTesseractCliExtractor({ binary, languages, autoRotate }),
       extractorType: 'tesseract-cli' as const,
     };
   } else {
     return {
-      extract: createTesseractJsExtractor({ languages }),
+      extract: createTesseractJsExtractor({ languages, autoRotate }),
       extractorType: 'tesseract-js' as const,
     };
   }
