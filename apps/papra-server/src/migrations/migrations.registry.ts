@@ -30,6 +30,7 @@ import { aiCreditsMigration } from './list/0027-ai-credits.migration';
 import { pendingOrganizationInvitationsUniqueMigration } from './list/0028-pending-organization-invitations-unique.migration';
 import { documentPreviewsMigration } from './list/0029-document-previews.migration';
 import { documentsViewPreferencesMigration } from './list/0030-documents-view-preferences.migration';
+import { resetFailedDocumentPreviewsMigration } from './list/0034-reset-failed-document-previews.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -62,4 +63,5 @@ export const migrations: Migration[] = [
   pendingOrganizationInvitationsUniqueMigration,
   documentPreviewsMigration,
   documentsViewPreferencesMigration,
+  resetFailedDocumentPreviewsMigration,
 ];
