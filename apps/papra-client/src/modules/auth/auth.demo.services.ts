@@ -14,6 +14,10 @@ export function createDemoAuthClient() {
       email: async () => Promise.resolve({}),
       social: async () => Promise.resolve({}),
     },
+    oauth2: {
+      consent: async () => Promise.resolve({ data: null, error: null }),
+      publicClientPrelogin: async () => Promise.resolve({ data: null, error: null }),
+    },
     signOut: async () => Promise.resolve({}),
     signUp: async () => Promise.resolve({}),
     requestPasswordReset: async () => Promise.resolve({}),

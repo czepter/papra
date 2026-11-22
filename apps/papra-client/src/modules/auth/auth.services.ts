@@ -1,6 +1,8 @@
 import type { Config } from '../config/config';
 
+import type { OauthProviderActions } from '../oauth/oauth.types';
 import type { SsoProviderConfig } from './auth.types';
+import { oauthProviderClient } from '@better-auth/oauth-provider/client';
 import { genericOAuthClient, twoFactorClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/solid';
 import { buildTimeConfig, isDemoMode } from '../config/config';
@@ -12,7 +14,7 @@ import { buildUrl } from '@corentinth/chisels';
 export function createAuthClient() {
   const client = createBetterAuthClient({
     baseURL: buildTimeConfig.baseApiUrl,
-    plugins: [genericOAuthClient(), twoFactorClient()],
+    plugins: [genericOAuthClient(), twoFactorClient(), oauthProviderClient()],
   });
 
   return {
@@ -24,6 +26,9 @@ export function createAuthClient() {
     sendVerificationEmail: client.sendVerificationEmail,
     twoFactor: client.twoFactor,
     getSession: client.getSession,
+    // Endpoints of the oauth provider plugin (consent page). The plugin cannot infer its server types
+    // here, so the shape is declared by hand. Its client hook attaches the signed query of the page.
+    oauth2: client.oauth2 as unknown as OauthProviderActions,
     signOut: async () => {
       trackingServices.capture({ event: 'User logged out' });
       const result = await client.signOut();
@@ -45,6 +50,7 @@ export const {
   resetPassword,
   sendVerificationEmail,
   twoFactor,
+  oauth2,
 } = isDemoMode ? createDemoAuthClient() : createAuthClient();
 
 export async function authWithProvider({
