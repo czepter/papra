@@ -32,7 +32,7 @@ import { documentPreviewsMigration } from './list/0029-document-previews.migrati
 import { documentsViewPreferencesMigration } from './list/0030-documents-view-preferences.migration';
 import { mcpOauthMigration } from './list/0031-mcp-oauth.migration';
 import { userPinnedTagsMigration } from './list/0033-user-pinned-tags.migration';
-import { resetFailedDocumentPreviewsMigration } from './list/0031-reset-failed-document-previews.migration';
+import { resetFailedDocumentPreviewsMigration } from './list/0034-reset-failed-document-previews.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,

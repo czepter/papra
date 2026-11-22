@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { createInMemoryDatabase } from '../../modules/app/database/database.test-utils';
 import { documentPreviewsTable } from '../../modules/document-previews/document-previews.table';
 import { isPreviewPermanentlyFailed } from '../../modules/document-previews/document-previews.models';
-import { resetFailedDocumentPreviewsMigration } from './0031-reset-failed-document-previews.migration';
+import { resetFailedDocumentPreviewsMigration } from './0034-reset-failed-document-previews.migration';
 
 describe('reset failed document previews migration', () => {
   test('permanently failed previews can be generated again, other previews are left untouched', async () => {
