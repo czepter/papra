@@ -16,9 +16,15 @@ import { registerTaggingRulesRoutes } from '../tagging-rules/tagging-rules.route
 import { registerWebhooksRoutes } from '../webhooks/webhooks.routes';
 import { registerAuthRoutes } from './auth/auth.routes';
 import { registerMcpRoutes } from '../mcp/mcp.routes';
+import { registerMcpOauthRoutes } from '../mcp/mcp.oauth.routes';
 import { registerOrganizationSettingsRoutes } from '../organizations/organization-settings/organization-settings.routes';
 
 export function registerRoutes(context: RouteDefinitionContext) {
+  // Before the auth routes: the OAuth metadata and the registration guard must precede the /api/auth/* catch-all
+  if (context.config.mcp.enabled) {
+    registerMcpOauthRoutes(context);
+  }
+
   registerAuthRoutes(context);
   registerIntakeEmailsRoutes(context);
   registerSubscriptionsRoutes(context);

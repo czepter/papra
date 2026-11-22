@@ -4,15 +4,15 @@ import { bearerAuth, StreamableHTTPTransport } from '@hono/mcp';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { bodyLimit } from 'hono/body-limit';
 import { formatPublicErrorPayload } from '../shared/errors/errors';
+import { API_KEY_PREFIX } from '../api-keys/api-keys.constants';
 import { buildVerifyApiKeyToken } from './mcp.authentication';
 import { MCP_REQUEST_BODY_MAX_SIZE } from './mcp.constants';
 import { createMcpRequestBodyTooLargeError } from './mcp.errors';
+import { buildVerifyOauthAccessToken } from './mcp.oauth';
+import { buildWwwAuthenticateHeader, getMcpOauthUrls } from './mcp.oauth.models';
 import { registerMcpTools } from './mcp.tools';
 
 export const MCP_ROUTE_PATH = '/mcp';
-
-// Plain bearer challenge: no OAuth metadata route is served yet, so no resource_metadata is advertised
-const BEARER_CHALLENGE = 'Bearer realm="papra"';
 
 // Same body for a missing and an invalid token, so the response does not reveal whether a key exists
 const unauthorizedPayload = formatPublicErrorPayload({
@@ -21,26 +21,38 @@ const unauthorizedPayload = formatPublicErrorPayload({
 });
 
 export function registerMcpRoutes({ app, ...deps }: RouteDefinitionContext) {
-  const { db, config } = deps;
+  const { db, config, auth } = deps;
   const verifyApiKeyToken = buildVerifyApiKeyToken({ db });
+  const verifyOauthAccessToken = buildVerifyOauthAccessToken({ auth, db, config });
+  const { protectedResourceMetadataUrl } = getMcpOauthUrls({ config });
+
+  // The challenge points MCP clients at the protected resource metadata, where they find the authorization server
+  const challenge = buildWwwAuthenticateHeader({ protectedResourceMetadataUrl });
+  const invalidTokenChallenge = buildWwwAuthenticateHeader({
+    protectedResourceMetadataUrl,
+    isInvalidToken: true,
+  });
 
   app.all(
     MCP_ROUTE_PATH,
     bearerAuth({
       noAuthenticationHeader: {
-        wwwAuthenticateHeader: BEARER_CHALLENGE,
+        wwwAuthenticateHeader: challenge,
         message: unauthorizedPayload,
       },
       invalidAuthenticationHeader: {
-        wwwAuthenticateHeader: BEARER_CHALLENGE,
+        wwwAuthenticateHeader: challenge,
         message: unauthorizedPayload,
       },
       invalidToken: {
-        wwwAuthenticateHeader: 'Bearer realm="papra", error="invalid_token"',
+        wwwAuthenticateHeader: invalidTokenChallenge,
         message: unauthorizedPayload,
       },
       verifyToken: async (token, context: Context) => {
-        const { authInfo } = await verifyApiKeyToken({ token });
+        // Papra API keys keep their own path, any other token is an OAuth access token
+        const { authInfo } = token.startsWith(`${API_KEY_PREFIX}_`)
+          ? await verifyApiKeyToken({ token })
+          : await verifyOauthAccessToken({ token });
 
         if (!authInfo) {
           return false;
