@@ -11,3 +11,13 @@ export const createMcpRequestBodyTooLargeError = createErrorFactory({
   code: 'mcp.request_body_too_large',
   statusCode: 413,
 });
+
+export const connectedAppNotFoundErrorDefinition = {
+  message: 'Connected app not found',
+  code: 'mcp.connected_app_not_found',
+  statusCode: 404,
+} as const;
+
+export const createConnectedAppNotFoundError = createErrorFactory(
+  connectedAppNotFoundErrorDefinition,
+);

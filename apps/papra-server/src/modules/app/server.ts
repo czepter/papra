@@ -21,11 +21,14 @@ export function createServer(dependencies: GlobalDependencies) {
   app.use(createTimeoutMiddleware({ config }));
   // Registered before secureHeaders so that it has the last word: the OAuth consent page must never be framed,
   // not even by the same origin (clickjacking of the Allow button)
-  app.use('/oauth/consent', async (context, next) => {
-    await next();
-    context.header('X-Frame-Options', 'DENY');
-    context.header('Content-Security-Policy', "frame-ancestors 'none'");
-  });
+  // Also covers path variants such as /oauth/consent/ and /oauth/consent/x
+  for (const path of ['/oauth/consent', '/oauth/consent/*']) {
+    app.use(path, async (context, next) => {
+      await next();
+      context.header('X-Frame-Options', 'DENY');
+      context.header('Content-Security-Policy', "frame-ancestors 'none'");
+    });
+  }
   app.use(secureHeaders());
 
   registerErrorMiddleware({ app });
