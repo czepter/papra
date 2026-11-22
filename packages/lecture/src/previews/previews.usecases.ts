@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import type { PreviewVariant } from './previews.types';
 import canvas from '@napi-rs/canvas';
 import sharp from 'sharp';
-import { getDocumentProxy, renderPageAsImage } from 'unpdf';
+import { createIsomorphicCanvasFactory, getDocumentProxy, renderPageAsImage } from 'unpdf';
 import {
   PREVIEW_MIME_TYPE,
   PREVIEW_VARIANT_DIMENSIONS,
@@ -15,7 +15,10 @@ import { isPdfMimeType, isPreviewSupportedMimeType } from './previews.models';
 const PDF_RENDER_WIDTH = PREVIEW_VARIANT_DIMENSIONS.preview.width;
 
 async function renderPdfFirstPage({ arrayBuffer }: { arrayBuffer: ArrayBuffer }) {
-  const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer));
+  // The canvas factory must be given to the document itself: pdf.js creates extra canvases to draw embedded images
+  // (every scanned page), and unpdf only wires the factory when it opens the document, not for a proxy passed in
+  const CanvasFactory = await createIsomorphicCanvasFactory(async () => canvas);
+  const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer), { CanvasFactory });
 
   try {
     const pageImage = await renderPageAsImage(pdf, 1, {

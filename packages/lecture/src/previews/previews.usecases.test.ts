@@ -67,6 +67,15 @@ describe('previews usecases', () => {
       ).to.be.lessThan(0.01);
     });
 
+    test('a pdf whose page is a scanned image is rendered', async () => {
+      const arrayBuffer = await readFixture({ path: '010-image-only-pdf/010.input.pdf' });
+
+      const result = await generatePreviewImages({ arrayBuffer, mimeType: 'application/pdf' });
+      const [, , preview] = await describePreviews(result);
+
+      expect(preview).to.include({ variant: 'preview', width: 1200, format: 'webp' });
+    });
+
     test('images are resized and the exif orientation is applied', async () => {
       const arrayBuffer = await readFixture({ path: '022-jpg-exif-rotation/022.input.jpg' });
       const { orientation, width, height } = await sharp(arrayBuffer).metadata();
