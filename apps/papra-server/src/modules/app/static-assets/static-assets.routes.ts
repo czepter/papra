@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { safely } from '@corentinth/chisels';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createLogger } from '../../shared/logger/logger';
-import { isApiRoute } from './static-assets.models';
+import { isBackendRoute } from './static-assets.models';
 
 const logger = createLogger({ namespace: 'static-assets.routes' });
 
@@ -31,7 +31,7 @@ export function registerStaticAssetsRoutes({
       return staticMiddleware(context as Context<any, string>, next);
     })
     .use('*', async (context, next) => {
-      if (isApiRoute({ path: context.req.path })) {
+      if (isBackendRoute({ path: context.req.path })) {
         return next();
       }
 

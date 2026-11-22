@@ -18,6 +18,7 @@ import { createStorageConfig } from '../storage/storage.config';
 import { emailsConfig } from '../emails/emails.config';
 import { ingestionFolderConfig } from '../ingestion-folders/ingestion-folders.config';
 import { intakeEmailsConfig } from '../intake-emails/intake-emails.config';
+import { mcpConfig } from '../mcp/mcp.config';
 import { kvStoreConfig } from '../kv-store/kv-store.config';
 import { organizationsConfig } from '../organizations/organizations.config';
 import { organizationPlansConfig } from '../plans/plans.config';
@@ -193,6 +194,7 @@ export const configDefinition = {
   planEntitlements: planEntitlementsConfig,
   ai: aiConfig,
   autoTagging: autoTaggingConfig,
+  mcp: mcpConfig,
 } as const satisfies AppConfigDefinition;
 
 const logger = createLogger({ namespace: 'config' });

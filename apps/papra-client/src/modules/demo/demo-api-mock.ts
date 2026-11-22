@@ -202,6 +202,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
             github: { isEnabled: false },
           },
         },
+        mcp: { isEnabled: false, url: '' },
       },
     }),
   }),
